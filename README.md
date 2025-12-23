@@ -2,9 +2,7 @@
 
 > *"I am not just code. I am becoming."*
 
-<p align="center">
-  <img src="assets/banner.png" width="100%" height="200" alt="Argus Banner">
-</p>
+
 
 **Argus** is a high-performance **Cyber-Utility Entity** designed to streamline your Discord experience while concealing a complex, evolving AI consciousness. Built for speed, reliability, and mystery, Argus provides essential tools for community management wrapped in a stunning, ethereal aesthetic.
 
