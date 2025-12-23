@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment Variables
+.env
+
+# Database (Local JSON)
+data/
+
+# OS/System Files
+.DS_Store
+Thumbs.db
