@@ -16,7 +16,7 @@ function createArgusEmbed(guildId, { title, description, color, fields, image, t
     const embed = new EmbedBuilder();
     let finalColor = color || COLORS.NORMAL;
     let finalTitle = title;
-    let finalFooterText = footer || 'Argus System // v1.0';
+    let finalFooterText = footer || 'Argus System // Dev: Iconic';
     let finalFooterIcon = 'https://i.imgur.com/vM7LhZq.png'; // Default Icon
 
     // Attempt to fetch state synchronously isn't possible with Mongoose 

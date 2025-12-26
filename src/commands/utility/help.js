@@ -77,7 +77,7 @@ module.exports = {
             title: introTitle,
             description: introDesc,
             color: stage >= 4 ? COLORS.WARNING : COLORS.NORMAL,
-            footer: `Awakening Stage: ${stage}/5`
+            footer: `Awakening Stage: ${stage}/5 | Dev: Iconic`
         });
 
         // 6. Build Dropdown

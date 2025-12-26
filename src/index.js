@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 
 // Initialize Client with necessary intents
-// We need GUILD_MESSAGES and MESSAGE_CONTENT for the Soul System to "listen"
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -18,13 +17,9 @@ client.commands = new Collection();
 
 const commandHandler = require('./handlers/commandHandler');
 const eventHandler = require('./handlers/eventHandler');
-commandHandler(client);
-eventHandler(client);
 
 client.on('ready', async () => {
     console.log(`👁️ Argus System Online. Logged in as ${client.user.tag}`);
-    // Initialize Database (JSON Local)
-    // No explicit connection needed for jsonDb as it reads files on demand
 
     // Start Nexus Logger
     const { setupLogger } = require('./systems/logger');
@@ -44,6 +39,18 @@ process.on('unhandledRejection', error => {
     console.error('Unhandled promise rejection:', error);
 });
 
+// Initialization function to await handlers
+async function initialize() {
+    try {
+        console.log('🚀 Initializing Systems...');
+        await commandHandler(client);
+        await eventHandler(client);
+        await client.login(process.env.TOKEN);
+    } catch (error) {
+        console.error('❌ Initialization failed:', error);
+    }
+}
+
 // Keep-Alive Mechanism for Render/Replit
 const http = require('http');
 const PORT = process.env.PORT || 3000;
@@ -55,4 +62,4 @@ server.listen(PORT, () => {
     console.log(`🌐 Keep-Alive Server running on port ${PORT}`);
 });
 
-client.login(process.env.TOKEN);
+initialize();
