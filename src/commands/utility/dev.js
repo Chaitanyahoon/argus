@@ -19,8 +19,15 @@ module.exports = {
                 .setDescription('Debug current bot state'))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
-        // SECURITY CHECK (Enable in production)
-        // if (interaction.user.id !== process.env.OWNER_ID) return interaction.reply("Unauthorized.");
+        // SECURITY CHECK: Only the bot owner can access developer tools
+        if (interaction.user.id !== process.env.OWNER_ID) {
+            const unauthorizedEmbed = createArgusEmbed(interaction.guildId, {
+                title: '🚫 ACCESS DENIED',
+                description: 'This terminal is locked to administrative personnel only.',
+                color: COLORS.DANGER
+            });
+            return interaction.reply({ embeds: [unauthorizedEmbed], ephemeral: true });
+        }
 
         if (interaction.options.getSubcommand() === 'setstage') {
             const stage = interaction.options.getInteger('stage');
