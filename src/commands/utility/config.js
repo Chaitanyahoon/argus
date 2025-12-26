@@ -17,6 +17,16 @@ module.exports = {
                         .setRequired(true)))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
+        // SECURITY CHECK: Only the bot owner can access configuration tools
+        if (interaction.user.id !== process.env.OWNER_ID) {
+            const unauthorizedEmbed = createArgusEmbed(interaction.guildId, {
+                title: '🚫 ACCESS DENIED',
+                description: 'Configuration access is restricted to the Prime Developer.',
+                color: COLORS.DANGER
+            });
+            return interaction.reply({ embeds: [unauthorizedEmbed], ephemeral: true });
+        }
+
         if (interaction.options.getSubcommand() === 'logging') {
             const channel = interaction.options.getChannel('channel');
 
