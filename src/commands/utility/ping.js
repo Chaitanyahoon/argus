@@ -4,6 +4,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Checks the system latency.'),
+    category: 'utility',
     async execute(interaction) {
         const sent = await interaction.reply({ content: 'Ping?', fetchReply: true });
         const latency = sent.createdTimestamp - interaction.createdTimestamp;

@@ -9,6 +9,7 @@ module.exports = {
         .setName('rank')
         .setDescription('Checks your current evolutionary standing.')
         .addUserOption(option => option.setName('target').setDescription('Member to check')),
+    category: 'utility',
     async execute(interaction) {
         const target = interaction.options.getUser('target') || interaction.user;
         const user = jsonDb.getUser(target.id);

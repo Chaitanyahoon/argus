@@ -6,6 +6,7 @@ module.exports = {
         .setName('avatar')
         .setDescription('Get the avatar of a user.')
         .addUserOption(option => option.setName('target').setDescription('The user to get the avatar for')),
+    category: 'utility',
     async execute(interaction) {
         const user = interaction.options.getUser('target') || interaction.user;
         const avatarUrl = user.displayAvatarURL({ dynamic: true, size: 1024 });

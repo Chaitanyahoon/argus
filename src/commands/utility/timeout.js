@@ -19,6 +19,7 @@ module.exports = {
             option.setName('reason')
                 .setDescription('Reason for the timeout'))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+    category: 'moderation',
     async execute(interaction) {
         const target = interaction.options.getMember('target');
         const duration = interaction.options.getInteger('duration');

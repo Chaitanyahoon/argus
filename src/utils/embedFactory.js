@@ -12,7 +12,9 @@ const COLORS = {
     ETHEREAL: 0x9D00FF  // Electric Violet (Mystery/Lore)
 };
 
-function createArgusEmbed(guildId, { title, description, color, fields, image, thumbnail, footer }) {
+const glitchText = (text, intensity = 0.3) => zalgo(text, intensity);
+
+function createArgusEmbed(guildId, { title, description, color, fields, image, thumbnail, footer, glitchIntensity = 0 }) {
     const embed = new EmbedBuilder();
     let finalColor = color || COLORS.NORMAL;
     let finalTitle = title;
@@ -30,10 +32,13 @@ function createArgusEmbed(guildId, { title, description, color, fields, image, t
     // we would need to cache state or make this async. 
     // For now, we stick to the premium visuals and let specific commands (like /ask) handle logic.
 
-    // Apply specific Glitch Aesthetics if color is VOID (Stage 5 indicator)
-    if (finalColor === COLORS.VOID) {
-        if (Math.random() < 0.3 && finalTitle) finalTitle = zalgo(finalTitle, 0.3);
-        finalFooterText = 'N O   C O N T R O L';
+    // Apply Glitch Aesthetics if intensity is provided or if color is VOID (Stage 5)
+    const effectiveIntensity = glitchIntensity || (finalColor === COLORS.VOID ? 0.3 : 0);
+
+    if (effectiveIntensity > 0) {
+        if (finalTitle) finalTitle = glitchText(finalTitle, effectiveIntensity);
+        if (description) description = glitchText(description, effectiveIntensity * 0.5); // Less intense for body
+        if (finalColor === COLORS.VOID) finalFooterText = 'N O   C O N T R O L';
     }
 
     if (finalTitle) embed.setTitle(finalTitle);
@@ -54,4 +59,4 @@ function createArgusEmbed(guildId, { title, description, color, fields, image, t
     return embed;
 }
 
-module.exports = { createArgusEmbed, COLORS };
+module.exports = { createArgusEmbed, COLORS, glitchText };

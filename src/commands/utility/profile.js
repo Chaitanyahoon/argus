@@ -18,8 +18,8 @@ module.exports = {
                 .setName('set')
                 .setDescription('Update your profile details')
                 .addStringOption(option => option.setName('bio').setDescription('Set your biography (max 200 chars)'))
-                .addStringOption(option => option.setName('banner').setDescription('Set your banner image URL')))
-    ,
+                .addStringOption(option => option.setName('banner').setDescription('Set your banner image URL'))),
+    category: 'utility',
     async execute(interaction) {
         if (interaction.options.getSubcommand() === 'set') {
             const bio = interaction.options.getString('bio');

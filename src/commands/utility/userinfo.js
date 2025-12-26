@@ -6,6 +6,7 @@ module.exports = {
         .setName('userinfo')
         .setDescription('Displays distinct personnel data.')
         .addUserOption(option => option.setName('target').setDescription('The user to check')),
+    category: 'utility',
     async execute(interaction) {
         const target = interaction.options.getUser('target') || interaction.user;
 

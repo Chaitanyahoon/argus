@@ -6,6 +6,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
         .setDescription('Displays the most prominent inhabitants of this reality.'),
+    category: 'utility',
     async execute(interaction) {
         const allUsers = jsonDb.getAllUsers();
 

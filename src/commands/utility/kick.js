@@ -13,6 +13,7 @@ module.exports = {
             option.setName('reason')
                 .setDescription('Reason for the kick'))
         .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+    category: 'moderation',
     async execute(interaction) {
         const target = interaction.options.getMember('target');
         const reason = interaction.options.getString('reason') || 'No reason provided';

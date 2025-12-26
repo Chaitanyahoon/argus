@@ -5,6 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('serverinfo')
         .setDescription('Displays information about this server.'),
+    category: 'utility',
     async execute(interaction) {
         const guild = interaction.guild;
         const owner = await guild.fetchOwner();

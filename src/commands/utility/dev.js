@@ -18,6 +18,7 @@ module.exports = {
                 .setName('checkstate')
                 .setDescription('Debug current bot state'))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    category: 'system',
     async execute(interaction) {
         // SECURITY CHECK: Only the bot owner can access developer tools
         if (interaction.user.id !== process.env.OWNER_ID) {

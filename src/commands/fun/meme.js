@@ -12,6 +12,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('meme')
         .setDescription('Fetches a random programming meme.'),
+    category: 'entertainment',
     async execute(interaction) {
         const randomMeme = MEMES[Math.floor(Math.random() * MEMES.length)];
         const { createArgusEmbed } = require('../../utils/embedFactory');

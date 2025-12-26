@@ -13,6 +13,7 @@ module.exports = {
             option.setName('reason')
                 .setDescription('Reason for the ban'))
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+    category: 'moderation',
     async execute(interaction) {
         const target = interaction.options.getUser('target');
         const reason = interaction.options.getString('reason') || 'No reason provided';

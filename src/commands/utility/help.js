@@ -6,6 +6,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('help')
         .setDescription('Access the Argus system manual.'),
+    category: 'utility',
     async execute(interaction) {
         const { commands } = interaction.client;
 
@@ -14,53 +15,24 @@ module.exports = {
         const stage = state ? state.awakening_stage : 0;
         const mood = state ? state.mood_mode : 'NORMAL';
 
-        // 2. Formatting & Categorization
-        const categories = {
-            utility: {
-                label: 'Utility Layer',
-                emoji: '🛠️',
-                description: 'Tools for daily operations.',
-                cmds: ['ping', 'uptime', 'serverinfo', 'userinfo', 'help', 'avatar', 'remind', 'calculate', 'poll', 'rank', 'leaderboard', 'profile']
-            },
-            moderation: {
-                label: 'Moderation Protocols',
-                emoji: '🛡️',
-                description: 'Enforcement and security.',
-                cmds: ['kick', 'ban', 'timeout', 'clear', 'purge']
-            },
-            system: {
-                label: 'System & Config',
-                emoji: '⚙️',
-                description: 'Core configuration and developer tools.',
-                cmds: ['config', 'dev']
-            },
-            entertainment: {
-                label: 'Entertainment Modules',
-                emoji: '🎲',
-                description: 'Recreational algorithms.',
-                cmds: ['ask', 'meme', '8ball', 'coinflip']
-            }
+        // 2. Metadata for Categories
+        const categoryMetadata = {
+            utility: { label: 'Utility Layer', emoji: '🛠️', description: 'Tools for daily operations.' },
+            moderation: { label: 'Moderation Protocols', emoji: '🛡️', description: 'Enforcement and security.' },
+            system: { label: 'System & Config', emoji: '⚙️', description: 'Core configuration.' },
+            entertainment: { label: 'Entertainment Modules', emoji: '🎲', description: 'Recreational algorithms.' }
         };
 
-        // 3. Map commands to categories
+        // 3. Map commands to categories dynamically
         const commandList = {};
         commands.forEach(cmd => {
-            const name = cmd.data.name;
-            let catFound = false;
-            for (const key in categories) {
-                if (categories[key].cmds.includes(name)) {
-                    if (!commandList[key]) commandList[key] = [];
-                    commandList[key].push(`**/${name}**\n*${cmd.data.description}*`);
-                    catFound = true;
-                    break;
-                }
-            }
-            // Fallback for uncategorized
-            if (!catFound) {
-                if (!commandList['entertainment']) commandList['entertainment'] = [];
-                commandList['entertainment'].push(`**/${name}**\n*${cmd.data.description}*`);
-            }
+            const cat = cmd.category || 'entertainment'; // Default fallback
+            if (!commandList[cat]) commandList[cat] = [];
+            commandList[cat].push(`**/${cmd.data.name}**\n*${cmd.data.description}*`);
         });
+
+        // 4. Filter metadata to only include categories that have commands
+        const activeCategories = Object.keys(categoryMetadata).filter(cat => commandList[cat]);
 
         // 4. Dynamic Flavor Text
         let introTitle = '👁️ Argus Instruction Manual';
@@ -85,11 +57,11 @@ module.exports = {
             .setCustomId('help_category')
             .setPlaceholder('Select a Module...')
             .addOptions(
-                Object.keys(categories).map(key => ({
-                    label: categories[key].label,
-                    description: categories[key].description,
+                activeCategories.map(key => ({
+                    label: categoryMetadata[key].label,
+                    description: categoryMetadata[key].description,
                     value: key,
-                    emoji: categories[key].emoji
+                    emoji: categoryMetadata[key].emoji
                 }))
             );
 
@@ -109,7 +81,7 @@ module.exports = {
 
         collector.on('collect', async i => {
             const selection = i.values[0];
-            const category = categories[selection];
+            const category = categoryMetadata[selection];
             const cmds = commandList[selection] || ['*No commands initialized in this sector.*'];
 
             const newEmbed = createArgusEmbed(interaction.guildId, {

@@ -19,6 +19,7 @@ module.exports = {
             subcommand
                 .setName('wipe')
                 .setDescription('Clear all your stored memories.')),
+    category: 'utility',
     async execute(interaction) {
         const userId = interaction.user.id;
         const sub = interaction.options.getSubcommand();

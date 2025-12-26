@@ -11,6 +11,7 @@ module.exports = {
             option.setName('query')
                 .setDescription('What do you wish to ask?')
                 .setRequired(true)),
+    category: 'entertainment',
     async execute(interaction) {
         await interaction.deferReply();
 

@@ -16,6 +16,7 @@ module.exports = {
                         .addChannelTypes(ChannelType.GuildText)
                         .setRequired(true)))
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    category: 'system',
     async execute(interaction) {
         // SECURITY CHECK: Only the bot owner can access configuration tools
         if (interaction.user.id !== process.env.OWNER_ID) {
