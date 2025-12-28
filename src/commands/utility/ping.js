@@ -10,9 +10,11 @@ module.exports = {
         const apiLatency = Math.round(interaction.client.ws.ping);
 
         const { createArgusEmbed, COLORS } = require('../../utils/embedFactory');
+        const { t } = require('../../utils/translator');
+
         const embed = createArgusEmbed(interaction.guildId, {
-            title: '🏓 System Latency',
-            description: `**Roundtrip:** ${latency}ms\n**Heartbeat:** ${apiLatency}ms`,
+            title: t(interaction.locale, 'ping.title'),
+            description: t(interaction.locale, 'ping.description', { latency, apiLatency }),
             color: COLORS.NORMAL
         });
 

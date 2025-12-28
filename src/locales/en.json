@@ -1,0 +1,15 @@
+{
+    "common": {
+        "access_denied": "🚫 ACCESS DENIED",
+        "system_error": "An internal error occurred."
+    },
+    "ping": {
+        "title": "🏓 System Latency",
+        "description": "**Roundtrip:** {latency}ms\n**Heartbeat:** {apiLatency}ms"
+    },
+    "help": {
+        "title": "👁️ Argus Instruction Manual",
+        "placeholder": "Select a Module...",
+        "module_loaded": "Module Loaded: {module}"
+    }
+}
