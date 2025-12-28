@@ -12,6 +12,31 @@ module.exports = {
                 .setDescription('What do you wish to ask?')
                 .setRequired(true)),
     async execute(interaction) {
+        const userId = interaction.user.id;
+        const userState = jsonDb.getUser(userId) || { level: 1 };
+        const userLevel = userState.level || 1;
+
+        // Determine cooldown based on level
+        let cooldownDuration = 60;
+        if (userLevel >= 20) cooldownDuration = 0;
+        else if (userLevel >= 10) cooldownDuration = 15;
+        else if (userLevel >= 5) cooldownDuration = 30;
+
+        if (cooldownDuration > 0) {
+            const { checkCooldown } = require('../../utils/cooldownManager');
+            const timeLeft = checkCooldown(userId, 'ask', cooldownDuration);
+
+            if (timeLeft) {
+                const limitEmbed = createArgusEmbed(interaction.guildId, {
+                    title: '⚠️ NEURAL OVERLOAD',
+                    description: `Your cognitive link is unstable. Please wait **${timeLeft}s** before attempting another query.`,
+                    color: COLORS.WARNING,
+                    footer: `Evolutionary Level ${userLevel} requirement not met for faster access.`
+                });
+                return interaction.reply({ embeds: [limitEmbed], ephemeral: true });
+            }
+        }
+
         await interaction.deferReply();
 
         const query = interaction.options.getString('query');
