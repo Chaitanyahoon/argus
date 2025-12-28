@@ -32,40 +32,88 @@ async function logToNexus(guild, embed) {
 }
 
 function setupLogger(client) {
+    // --- System Boot Log ---
+    client.on(Events.ClientReady, async () => {
+        client.guilds.cache.forEach(async (guild) => {
+            const embed = createArgusEmbed(guild.id, {
+                title: '👁️ NEXUS ONLINE',
+                description: 'Surveillance systems initialized. All protocols active.',
+                color: COLORS.SUCCESS,
+                footer: 'System Initialization Complete'
+            });
+            await logToNexus(guild, embed);
+        });
+    });
+
     // --- Message Delete ---
     client.on(Events.MessageDelete, async (message) => {
         if (!message.guild || message.author?.bot) return;
 
         const embed = createArgusEmbed(message.guild.id, {
-            title: '🗑️ Message Terminated',
-            description: `**Author:** ${message.author}\n**Channel:** ${message.channel}\n**Content:** \`\`\`${message.content || '[No Content]'}\`\`\``,
-            color: COLORS.ERROR
+            title: '🗑️ Data Terminated',
+            description: `**Source:** ${message.author}\n**Sector:** ${message.channel}\n**Content:** \`\`\`${message.content || '[ENCRYPTED_OR_EMPTY]'}\`\`\``,
+            color: COLORS.DANGER,
+            footer: 'Message Deletion Log'
         });
 
         await logToNexus(message.guild, embed);
     });
 
-    // --- Message Update (Edit) ---
-    client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
-        if (!oldMessage.guild || oldMessage.author?.bot || oldMessage.content === newMessage.content) return;
+    // --- Message Edit ---
+    client.on(Events.MessageUpdate, async (oldMsg, newMsg) => {
+        if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
 
-        const embed = createArgusEmbed(oldMessage.guild.id, {
-            title: '📝 Message Modified',
-            description: `**Author:** ${oldMessage.author}\n**Channel:** ${oldMessage.channel}\n**Before:** ${oldMessage.content}\n**After:** ${newMessage.content}`,
-            color: COLORS.WARNING
+        const embed = createArgusEmbed(oldMsg.guild.id, {
+            title: '📝 Data Modified',
+            description: `**Source:** ${oldMsg.author}\n**Sector:** ${oldMsg.channel}\n**Previous:** ${oldMsg.content}\n**Current:** ${newMsg.content}`,
+            color: COLORS.WARNING,
+            footer: 'Message Modification Log'
         });
 
-        await logToNexus(oldMessage.guild, embed);
+        await logToNexus(oldMsg.guild, embed);
     });
 
-    // --- Member Join ---
+    // --- Channel Monitoring ---
+    client.on(Events.ChannelCreate, async (channel) => {
+        if (!channel.guild) return;
+        const embed = createArgusEmbed(channel.guild.id, {
+            title: '📂 New Sector Created',
+            description: `**Name:** ${channel.name}\n**Type:** ${channel.type}\n**ID:** \`${channel.id}\``,
+            color: COLORS.SUCCESS,
+            footer: 'Infrastructure Expansion'
+        });
+        await logToNexus(channel.guild, embed);
+    });
+
+    client.on(Events.ChannelDelete, async (channel) => {
+        if (!channel.guild) return;
+        const embed = createArgusEmbed(channel.guild.id, {
+            title: '🚫 Sector Collapsed',
+            description: `**Name:** ${channel.name}\n**ID:** \`${channel.id}\``,
+            color: COLORS.DANGER,
+            footer: 'Infrastructure Reduction'
+        });
+        await logToNexus(channel.guild, embed);
+    });
+
+    // --- Personnel Tracking ---
     client.on(Events.GuildMemberAdd, async (member) => {
         const embed = createArgusEmbed(member.guild.id, {
-            title: '👋 New Subject Observed',
-            description: `**Member:** ${member.user.tag}\n**ID:** ${member.id}\nWelcome to the collective.`,
-            color: COLORS.NORMAL
+            title: '👤 Subject Integrated',
+            description: `**Tag:** ${member.user.tag}\n**ID:** \`${member.id}\`\nInterpreting neural patterns...`,
+            color: COLORS.NORMAL,
+            footer: 'Personnel Entry'
         });
+        await logToNexus(member.guild, embed);
+    });
 
+    client.on(Events.GuildMemberRemove, async (member) => {
+        const embed = createArgusEmbed(member.guild.id, {
+            title: '👥 Subject Severed',
+            description: `**Tag:** ${member.user.tag}\n**ID:** \`${member.id}\`\nConnection lost.`,
+            color: COLORS.WARNING,
+            footer: 'Personnel Exit'
+        });
         await logToNexus(member.guild, embed);
     });
 }
