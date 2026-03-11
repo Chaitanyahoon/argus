@@ -247,7 +247,10 @@ class LiveSession:
             on_interrupted: Called when the model's response is interrupted by user speech.
             on_transcript: Called with (direction, text) for input/output transcriptions.
         """
-        self._client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        self._client = genai.Client(
+            api_key=Config.GEMINI_API_KEY,
+            http_options={"api_version": "v1beta"},
+        )
         self._session = None
         self._receive_task: Optional[asyncio.Task] = None
         self._connected = False
