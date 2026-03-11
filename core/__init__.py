@@ -1,0 +1,3 @@
+"""
+Argus Bot Core Package
+"""
