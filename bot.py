@@ -120,6 +120,7 @@ bot = commands.Bot(
     command_prefix=get_prefix,
     intents=intents,
     description="AI-powered voice-controlled Discord moderation bot",
+    help_command=None,
 )
 
 voice_manager: VoiceManager | None = None
