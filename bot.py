@@ -179,8 +179,7 @@ async def on_ready():
     logger.info("  👁️ Argus is online: %s (ID: %s)", bot.user.name, bot.user.id)
     logger.info("  📡 Connected to %d guild(s)", len(bot.guilds))
     logger.info("  🧠 AI: Gemini 2.5 Flash (Live Audio Mode)")
-    logger.info("  ✅ Ready! Use %sjoin to connect, then %slisten to start.",
-                Config.COMMAND_PREFIX, Config.COMMAND_PREFIX)
+    logger.info(f"  ✅ Ready! Use {Config.COMMAND_PREFIX}join to connect, then {Config.COMMAND_PREFIX}listen to start.")
     
     # Start status rotation
     bot.loop.create_task(_update_bot_status())
@@ -295,11 +294,95 @@ async def on_interaction(interaction):
 
 # ── Text Commands ────────────────────────────────────────────────────────────
 
+@bot.command(name="help", help="Show all available commands.")
+async def help_command(ctx: commands.Context, command_name: str = None):
+    """Display all commands in a formatted embed."""
+    prefix = ctx.prefix
+    
+    if command_name:
+        # Show help for specific command
+        cmd = bot.get_command(command_name)
+        if not cmd:
+            embed = discord.Embed(
+                title="❌ Command Not Found",
+                description=f"The command `{command_name}` does not exist.",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=embed)
+            return
+        
+        embed = discord.Embed(
+            title=f"📖 Help: {prefix}{cmd.name}",
+            description=cmd.help or "No description available.",
+            color=discord.Color.blue()
+        )
+        if cmd.aliases:
+            embed.add_field(name="Aliases", value=", ".join([f"`{prefix}{a}`" for a in cmd.aliases]), inline=False)
+        embed.set_footer(text="Use !help to see all commands")
+        await ctx.send(embed=embed)
+        return
+    
+    # Show all commands grouped by category
+    voice_cmds = ["join", "leave", "listen", "stop"]
+    music_cmds = ["play", "skip", "stopmusic", "queue", "nowplaying"]
+    admin_cmds = ["setcreatechannel", "settempvcategory", "setinterfacechannel", "postvcinterface", "nexus_setup", "autosetup", "setprefix", "setactivity"]
+    info_cmds = ["level", "setup", "status"]
+    
+    # Create main help embed
+    embed = discord.Embed(
+        title="👁️ Argus Commands",
+        description="AI-Powered Discord Moderation Bot\n\nUse `!help <command>` for detailed info on a command.",
+        color=discord.Color.purple()
+    )
+    
+    # Voice Commands
+    voice_list = []
+    for cmd_name in voice_cmds:
+        cmd = bot.get_command(cmd_name)
+        if cmd:
+            voice_list.append(f"`{prefix}{cmd.name}` — {cmd.help or 'No description'}")
+    if voice_list:
+        embed.add_field(name="🎤 Voice Commands", value="\n".join(voice_list), inline=False)
+    
+    # Music Commands
+    music_list = []
+    for cmd_name in music_cmds:
+        cmd = bot.get_command(cmd_name)
+        if cmd:
+            music_list.append(f"`{prefix}{cmd.name}` — {cmd.help or 'No description'}")
+    if music_list:
+        embed.add_field(name="🎵 Music Commands", value="\n".join(music_list), inline=False)
+    
+    # Admin Commands
+    admin_list = []
+    for cmd_name in admin_cmds:
+        cmd = bot.get_command(cmd_name)
+        if cmd:
+            admin_list.append(f"`{prefix}{cmd.name}` — {cmd.help or 'No description'}")
+    if admin_list:
+        embed.add_field(name="⚙️ Admin Commands", value="\n".join(admin_list), inline=False)
+    
+    # Info Commands
+    info_list = []
+    for cmd_name in info_cmds:
+        cmd = bot.get_command(cmd_name)
+        if cmd:
+            info_list.append(f"`{prefix}{cmd.name}` — {cmd.help or 'No description'}")
+    if info_list:
+        embed.add_field(name="ℹ️ Info Commands", value="\n".join(info_list), inline=False)
+    
+    embed.set_footer(text=f"Prefix: {prefix} | Total Commands: {len(bot.commands)}")
+    embed.set_thumbnail(url=bot.user.display_avatar.url if bot.user else None)
+    
+    await ctx.send(embed=embed)
+
+
 @bot.command(name="join", help="Join the voice channel you are in.")
 @commands.cooldown(1, 5, commands.BucketType.user)
 async def join(ctx: commands.Context):
     if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.send("❌ You need to be in a voice channel first!")
+        embed = discord.Embed(title="❌ Not in Voice Channel", description="You need to be in a voice channel first!", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     channel = ctx.author.voice.channel
@@ -322,17 +405,21 @@ async def join(ctx: commands.Context):
         else:
             await channel.connect(cls=voice_recv.VoiceRecvClient)
             
-        await ctx.send(f"✅ Joined **{channel.name}**. Use `{Config.COMMAND_PREFIX}listen` to start the AI.")
+        embed = discord.Embed(title="✅ Joined Voice Channel", description=f"Connected to **{channel.name}**\n\nUse `{Config.COMMAND_PREFIX}listen` to start the AI.", color=discord.Color.green())
+        await ctx.send(embed=embed)
     except discord.ClientException:
-        await ctx.send("❌ Already in a voice channel.")
+        embed = discord.Embed(title="❌ Already Connected", description="I'm already in a voice channel.", color=discord.Color.red())
+        await ctx.send(embed=embed)
     except Exception as e:
-        await ctx.send(f"❌ Could not join voice: {e}")
+        embed = discord.Embed(title="❌ Connection Failed", description=f"```{str(e)[:500]}```", color=discord.Color.red())
+        await ctx.send(embed=embed)
 
 
 @bot.command(name="leave", help="Bot leaves the voice channel.")
 async def leave_vc(ctx: commands.Context):
     if not ctx.voice_client:
-        await ctx.send("❌ I'm not in a voice channel.")
+        embed = discord.Embed(title="❌ Not Connected", description="I'm not in a voice channel.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
         
     if voice_manager:
@@ -345,30 +432,32 @@ async def leave_vc(ctx: commands.Context):
         player.set_voice_client(None)
         
     await ctx.voice_client.disconnect()
-    await ctx.send("👋 Left the voice channel.")
+    embed = discord.Embed(title="👋 Left Voice Channel", description="Disconnected from the voice channel.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="listen", help="Start listening for voice commands.")
 @commands.cooldown(1, 10, commands.BucketType.user)
 async def listen(ctx: commands.Context):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission to use voice commands.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission to use voice commands.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     
     # Check guild-level rate limit to prevent spam
     can_proceed, rate_limit_msg = check_voice_command_rate_limit(ctx.guild.id)
     if not can_proceed:
-        await ctx.send(rate_limit_msg)
+        embed = discord.Embed(title="⏳ Rate Limited", description=rate_limit_msg, color=discord.Color.orange())
+        await ctx.send(embed=embed)
         return
     
     if not ctx.voice_client:
-        await ctx.send(f"❌ Use `{Config.COMMAND_PREFIX}join` first so I'm in your voice channel.")
+        embed = discord.Embed(title="❌ Not Connected to Voice", description=f"Use `{Config.COMMAND_PREFIX}join` first to connect me to your voice channel.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not ctx.voice_client.is_connected():
-        await ctx.send(
-            "❌ I'm not fully connected to voice yet. "
-            f"Try `{Config.COMMAND_PREFIX}leave` then `{Config.COMMAND_PREFIX}join` again."
-        )
+        embed = discord.Embed(title="⚠️ Connection Issue", description=f"Voice connection incomplete. Try `{Config.COMMAND_PREFIX}leave` then `{Config.COMMAND_PREFIX}join` again.", color=discord.Color.orange())
+        await ctx.send(embed=embed)
         return
 
     if not voice_manager:
@@ -409,11 +498,13 @@ async def listen(ctx: commands.Context):
 @bot.command(name="stop", help="Stop listening for voice commands.")
 async def stop_listening(ctx: commands.Context):
     if not voice_manager:
-        await ctx.send("❌ Voice not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Voice manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     listener = voice_manager.get_listener(ctx.guild.id)
     await listener.stop_listening()
-    await ctx.send("🔇 Stopped listening. Gemini Live session closed.")
+    embed = discord.Embed(title="🔇 Listening Stopped", description="Gemini Live session closed.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 # ── Music commands ───────────────────────────────────────────────────────────
@@ -421,10 +512,12 @@ async def stop_listening(ctx: commands.Context):
 @bot.command(name="play", help="Play a track from URL or search query. Bot joins your VC if needed.")
 async def play_music(ctx: commands.Context, *, query: str = None):
     if not query or not query.strip():
-        await ctx.send("❌ Use `!play <URL or search terms>` (e.g. `!play never gonna give you up`).")
+        embed = discord.Embed(title="❌ Missing Query", description="Use `!play <URL or search terms>`\n\n*Example: `!play never gonna give you up`*", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not ctx.author.voice or not ctx.author.voice.channel:
-        await ctx.send("❌ You need to be in a voice channel first!")
+        embed = discord.Embed(title="❌ Not in Voice Channel", description="You need to be in a voice channel first!", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     channel = ctx.author.voice.channel
@@ -433,7 +526,8 @@ async def play_music(ctx: commands.Context, *, query: str = None):
     # Join VC if not connected
     if not vc:
         if voice_recv is None:
-            await ctx.send("❌ Voice support not available.")
+            embed = discord.Embed(title="❌ Voice Not Available", description="Voice support is not available on this system.", color=discord.Color.red())
+            await ctx.send(embed=embed)
             return
         try:
             vc = await channel.connect(cls=voice_recv.VoiceRecvClient)
@@ -481,33 +575,41 @@ async def play_music(ctx: commands.Context, *, query: str = None):
 @bot.command(name="skip", help="Skip the current track and play the next in queue.")
 async def skip_music(ctx: commands.Context):
     if not ctx.voice_client or not ctx.voice_client.is_connected():
-        await ctx.send("❌ I'm not in a voice channel.")
+        embed = discord.Embed(title="❌ Not Connected", description="I'm not in a voice channel.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not music_manager:
-        await ctx.send("❌ Music not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Music manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     player = music_manager.get_player_for_vc(ctx.voice_client)
     if not player:
-        await ctx.send("❌ No music player.")
+        embed = discord.Embed(title="❌ No Player", description="No music player found.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     await player.skip()
-    await ctx.send("⏭️ Skipped.")
+    embed = discord.Embed(title="⏭️ Skipped", description="Skipped to the next track.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="stopmusic", help="Stop playback and clear the queue.")
 async def stop_music(ctx: commands.Context):
     if not ctx.voice_client or not ctx.voice_client.is_connected():
-        await ctx.send("❌ I'm not in a voice channel.")
+        embed = discord.Embed(title="❌ Not Connected", description="I'm not in a voice channel.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not music_manager:
-        await ctx.send("❌ Music not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Music manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     player = music_manager.get_player_for_vc(ctx.voice_client)
     if not player:
-        await ctx.send("❌ No music player.")
+        embed = discord.Embed(title="❌ No Player", description="No music player found.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     await player.stop()
-    await ctx.send("⏹️ Stopped and cleared queue.")
+    embed = discord.Embed(title="⏹️ Stopped", description="Playback stopped and queue cleared.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="queue", help="Show current track and queue.")
@@ -544,63 +646,83 @@ async def queue_music(ctx: commands.Context):
 @bot.command(name="nowplaying", help="Show the current track.")
 async def nowplaying_music(ctx: commands.Context):
     if not music_manager:
-        await ctx.send("❌ Music not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Music manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not ctx.guild:
-        await ctx.send("❌ Not in a guild.")
+        embed = discord.Embed(title="❌ Not in Guild", description="This command can only be used in a server.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     player = music_manager.get_player(ctx.guild.id)
     current = player.current
     if not current:
-        await ctx.send("Nothing playing.")
+        embed = discord.Embed(title="🔇 Nothing Playing", description="No track is currently playing.", color=discord.Color.greyple())
+        await ctx.send(embed=embed)
         return
+    
     duration_str = f" ({current.duration}s)" if current.duration else ""
-    await ctx.send(f"▶️ **Now playing:** {current.title}{duration_str} (requested by {current.requested_by_name})")
+    embed = discord.Embed(
+        title="▶️ Now Playing",
+        description=f"**{current.title}**{duration_str}\n\n*Requested by {current.requested_by_name}*",
+        color=discord.Color.green()
+    )
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="setcreatechannel", help="[Admin] Set the voice channel that creates temp VCs when users join.")
 async def set_create_channel(ctx: commands.Context, channel: discord.VoiceChannel):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     argus_manager.db.set_guild(ctx.guild.id, temp_voice_trigger_id=channel.id)
-    await ctx.send(f"✅ **Create VC** channel set to **{channel.name}**. Join it to create a temp VC.")
+    embed = discord.Embed(title="✅ Create VC Channel Set", description=f"Join **{channel.mention}** to create a temporary voice channel.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="settempvcategory", help="[Admin] Set the category where temp voice channels are created.")
 async def set_temp_vc_category(ctx: commands.Context, category: discord.CategoryChannel):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     argus_manager.db.set_guild(ctx.guild.id, temp_voice_category_id=category.id)
-    await ctx.send(f"✅ **Temp VC Category** set to **{category.name}**. New channels will be created here.")
+    embed = discord.Embed(title="✅ Temp VC Category Set", description=f"New temporary voice channels will be created in **{category.name}**.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="setinterfacechannel", help="[Admin] Set the text channel where users manage their temp VC.")
 async def set_interface_channel_cmd(ctx: commands.Context, channel: discord.TextChannel):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     argus_manager.db.set_guild(ctx.guild.id, temp_voice_interface_id=channel.id)
-    await ctx.send(f"✅ **Interface Channel** set to {channel.mention}. Run `{ctx.prefix}postvcinterface` there.")
+    embed = discord.Embed(title="✅ Interface Channel Set", description=f"Temp VC interface will be posted in {channel.mention}.\n\nRun `{ctx.prefix}postvcinterface` to post the interface.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="postvcinterface", help="[Admin] Post the shared TempVoice interface here (one message; actions apply to your own VC only).")
 async def post_vc_interface(ctx: commands.Context):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not temp_voice_manager:
-        await ctx.send("❌ TempVoice not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="TempVoice not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     from core.temp_voice_ui import SharedTempVoiceView
     embed = discord.Embed(
@@ -611,29 +733,35 @@ async def post_vc_interface(ctx: commands.Context):
     embed.set_footer(text="Create a temp VC by joining the Create VC channel, then use these buttons.")
     view = SharedTempVoiceView(temp_voice_manager, timeout=None)
     await ctx.send(embed=embed, view=view)
-    await ctx.send("✅ Shared VC interface posted. Everyone uses this message; clicks affect only their own VC.")
+    embed = discord.Embed(title="✅ Interface Posted", description="Everyone uses this message; clicks affect only their own VC.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="nexus_setup", help="[Admin] Set the logging channel for the Nexus Logger.")
 async def nexus_setup_cmd(ctx: commands.Context, channel: discord.TextChannel):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     argus_manager.db.set_guild(ctx.guild.id, logging_channel_id=channel.id)
-    await ctx.send(f"👁️ **Nexus Logger** initialized. Surveillance logs will be routed to {channel.mention}.")
+    embed = discord.Embed(title="👁️ Nexus Logger Initialized", description=f"Surveillance logs will be routed to {channel.mention}.", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 @bot.command(name="level", help="Check your current evolutionary level.")
 async def level_cmd(ctx: commands.Context, member: discord.Member = None):
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     target = member or ctx.author
     user_data = argus_manager.db.get_user(target.id)
     if not user_data:
-        await ctx.send(f"I have no data on {target.name} yet. Interact more to begin evolution.")
+        embed = discord.Embed(title="ℹ️ No Data Available", description=f"I have no data on {target.name} yet. Interact more to begin evolution.", color=discord.Color.greyple())
+        await ctx.send(embed=embed)
         return
     
     level = user_data.get('level', 1)
@@ -655,10 +783,12 @@ async def level_cmd(ctx: commands.Context, member: discord.Member = None):
 @bot.command(name="setup", aliases=["config", "settings"], help="[Admin] Show current server configuration and setup status.")
 async def setup_status(ctx: commands.Context):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     data = argus_manager.db.get_guild(ctx.guild.id) or {}
@@ -689,7 +819,8 @@ async def setup_status(ctx: commands.Context):
 @bot.command(name="setactivity", help="[Admin] Set the bot's status/activity.")
 async def set_activity(ctx: commands.Context, type: str, *, name: str):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     
     activity_type = {
@@ -701,19 +832,23 @@ async def set_activity(ctx: commands.Context, type: str, *, name: str):
     }.get(type.lower(), discord.ActivityType.watching)
 
     await bot.change_presence(activity=discord.Activity(type=activity_type, name=name))
-    await ctx.send(f"✅ Activity updated to **{type.capitalize()} {name}**.")
+    embed = discord.Embed(title="✅ Activity Updated", description=f"**{type.capitalize()} {name}**", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="autosetup", help="[Admin] Automatically create and configure all necessary channels.")
 async def auto_setup(ctx: commands.Context):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
-    msg = await ctx.send("⚙️ **Initializing Fast Setup...** Creating categories and channels.")
+    embed = discord.Embed(title="⚙️ Initializing Fast Setup", description="Creating categories and channels...", color=discord.Color.blue())
+    msg = await ctx.send(embed=embed)
     
     try:
         # 1. Create Category
@@ -743,12 +878,19 @@ async def auto_setup(ctx: commands.Context):
         view = SharedTempVoiceView(bot.temp_voice_manager, timeout=None)
         await interface.send(embed=ui_embed, view=view)
         
-        await msg.edit(content=f"✅ **Setup Complete!**\n- Category: {category.mention}\n- Trigger: {trigger.mention}\n- Logs: {logs.mention}\n- Interface: {interface.mention}\n\nEverything is pre-configured. Join {trigger.mention} to start!")
+        setup_embed = discord.Embed(
+            title="✅ Setup Complete!",
+            description=f"- **Category:** {category.mention}\n- **Trigger:** {trigger.mention}\n- **Logs:** {logs.mention}\n- **Interface:** {interface.mention}\n\nEverything is pre-configured. Join {trigger.mention} to start!",
+            color=discord.Color.green()
+        )
+        await msg.edit(embed=setup_embed)
         
     except discord.Forbidden:
-        await msg.edit(content="❌ **Permission Error**: I don't have permission to create channels/categories.")
+        error_embed = discord.Embed(title="❌ Permission Error", description="I don't have permission to create channels/categories.", color=discord.Color.red())
+        await msg.edit(embed=error_embed)
     except Exception as e:
-        await msg.edit(content=f"❌ **System Error**: `{e}`")
+        error_embed = discord.Embed(title="❌ System Error", description=f"```{str(e)[:500]}```", color=discord.Color.red())
+        await msg.edit(embed=error_embed)
 
 
 @bot.command(name="status", help="Show bot status.")
@@ -788,18 +930,22 @@ async def status(ctx: commands.Context):
 @bot.command(name="setprefix", help="[Admin] Set the command prefix for this server.")
 async def set_prefix_cmd(ctx: commands.Context, new_prefix: str):
     if ctx.author.id not in Config.ADMIN_USER_IDS:
-        await ctx.send("🚫 You don't have permission.")
+        embed = discord.Embed(title="🚫 Permission Denied", description="You don't have permission.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not argus_manager:
-        await ctx.send("❌ Argus systems not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Argus systems not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     
     if len(new_prefix) > 3 or " " in new_prefix:
-        await ctx.send("❌ Prefix must be 1-3 characters and contain no spaces.")
+        embed = discord.Embed(title="❌ Invalid Prefix", description="Prefix must be 1-3 characters and contain no spaces.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
         
     argus_manager.db.set_guild(ctx.guild.id, prefix=new_prefix)
-    await ctx.send(f"✅ **Command Prefix** recalibrated. New trigger: `{new_prefix}`")
+    embed = discord.Embed(title="✅ Command Prefix Updated", description=f"New prefix: `{new_prefix}`", color=discord.Color.green())
+    await ctx.send(embed=embed)
 
 
 # ── Error Handling ───────────────────────────────────────────────────────────
@@ -817,15 +963,30 @@ async def on_command_error(ctx: commands.Context, error):
         await ctx.send(embed=embed, delete_after=10)
         return
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send("🚫 Error: Insufficient permissions to execute this command.")
+        embed = discord.Embed(
+            title="🚫 Permission Denied",
+            description="You don't have permission to execute this command.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed, delete_after=10)
         return
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument: `{error.param.name}`. Check `{ctx.prefix}help {ctx.command.name}`")
+        embed = discord.Embed(
+            title="❌ Missing Argument",
+            description=f"**Parameter:** `{error.param.name}`\n\nUse `{ctx.prefix}help {ctx.command.name}` for more info.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed, delete_after=15)
         return
     logger.error("Command error in %s: %s", ctx.command.name if ctx.command else "unknown", error)
     # Don't spam text for every error, but provide a generic failure if it's not handled
     try:
-        await ctx.send(f"❌ System Exception: `{error}`")
+        embed = discord.Embed(
+            title="⚠️ System Exception",
+            description=f"```{str(error)[:1024]}```",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed, delete_after=10)
     except Exception:
         pass
 
