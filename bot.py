@@ -314,7 +314,7 @@ async def help_command(ctx: commands.Context, command_name: str = None):
         embed = discord.Embed(
             title=f"📖 Help: {prefix}{cmd.name}",
             description=cmd.help or "No description available.",
-            color=discord.Color.blue()
+            color=0x0099ff
         )
         if cmd.aliases:
             embed.add_field(name="Aliases", value=", ".join([f"`{prefix}{a}`" for a in cmd.aliases]), inline=False)
@@ -332,7 +332,7 @@ async def help_command(ctx: commands.Context, command_name: str = None):
     embed = discord.Embed(
         title="👁️ Argus Commands",
         description="AI-Powered Discord Moderation Bot\n\nUse `!help <command>` for detailed info on a command.",
-        color=discord.Color.purple()
+        color=0x001a4d
     )
     
     # Voice Commands
@@ -447,7 +447,7 @@ async def listen(ctx: commands.Context):
     # Check guild-level rate limit to prevent spam
     can_proceed, rate_limit_msg = check_voice_command_rate_limit(ctx.guild.id)
     if not can_proceed:
-        embed = discord.Embed(title="⏳ Rate Limited", description=rate_limit_msg, color=discord.Color.orange())
+        embed = discord.Embed(title="⏳ Rate Limited", description=rate_limit_msg, color=0x0099ff)
         await ctx.send(embed=embed)
         return
     
@@ -456,7 +456,7 @@ async def listen(ctx: commands.Context):
         await ctx.send(embed=embed)
         return
     if not ctx.voice_client.is_connected():
-        embed = discord.Embed(title="⚠️ Connection Issue", description=f"Voice connection incomplete. Try `{Config.COMMAND_PREFIX}leave` then `{Config.COMMAND_PREFIX}join` again.", color=discord.Color.orange())
+        embed = discord.Embed(title="⚠️ Connection Issue", description=f"Voice connection incomplete. Try `{Config.COMMAND_PREFIX}leave` then `{Config.COMMAND_PREFIX}join` again.", color=0x0099ff)
         await ctx.send(embed=embed)
         return
 
@@ -638,7 +638,7 @@ async def queue_music(ctx: commands.Context):
     embed = discord.Embed(
         title="Music Queue",
         description="\n".join(lines),
-        color=discord.Color.blue(),
+        color=0x001a4d,
     )
     await ctx.send(embed=embed)
 
@@ -728,7 +728,7 @@ async def post_vc_interface(ctx: commands.Context):
     embed = discord.Embed(
         title="TempVoice Interface",
         description="Use the buttons below to manage **your** temp VC. Actions apply only to the VC you own.",
-        color=discord.Color.blue(),
+        color=0x001a4d,
     )
     embed.set_footer(text="Create a temp VC by joining the Create VC channel, then use these buttons.")
     view = SharedTempVoiceView(temp_voice_manager, timeout=None)
@@ -801,7 +801,7 @@ async def setup_status(ctx: commands.Context):
             return f"✅ {val}"
         return fallback
 
-    embed = discord.Embed(title="👁️ Argus System Configuration", color=0x3498db)
+    embed = discord.Embed(title="👁️ Argus System Configuration", color=0x001a4d)
     embed.description = f"Current configuration for **{ctx.guild.name}**. Use `{ctx.prefix}autosetup` to automate this."
     
     embed.add_field(name="Prefix", value=format_status(data.get("prefix"), "✅ !"), inline=True)
@@ -847,7 +847,7 @@ async def auto_setup(ctx: commands.Context):
         await ctx.send(embed=embed)
         return
 
-    embed = discord.Embed(title="⚙️ Initializing Fast Setup", description="Creating categories and channels...", color=discord.Color.blue())
+    embed = discord.Embed(title="⚙️ Initializing Fast Setup", description="Creating categories and channels...", color=0x001a4d)
     msg = await ctx.send(embed=embed)
     
     try:
@@ -873,7 +873,7 @@ async def auto_setup(ctx: commands.Context):
         ui_embed = discord.Embed(
             title="TempVoice Interface",
             description="Use the buttons below to manage **your** temporary voice channel.",
-            color=discord.Color.blue(),
+            color=0x001a4d,
         )
         view = SharedTempVoiceView(bot.temp_voice_manager, timeout=None)
         await interface.send(embed=ui_embed, view=view)
@@ -906,7 +906,7 @@ async def status(ctx: commands.Context):
         if listener._live_session and listener._live_session.is_connected:
             live_status = "Connected"
 
-    embed = discord.Embed(title="👁️ Argus System Status", color=discord.Color.blue())
+    embed = discord.Embed(title="👁️ Argus System Status", color=0x001a4d)
     embed.add_field(name="Voice Channel", value=vc_status, inline=True)
     embed.add_field(name="Listening", value=listening_status, inline=True)
     embed.add_field(name="Live API", value=live_status, inline=True)
