@@ -48,6 +48,29 @@ env/
 .idea/
 *.swp
 *.swo
+
+# Test & Temporary Files
+test_results.txt
+*.log
+pytest.cache/
+.pytest_cache/
+
+# Documentation (temporary)
+*_ADDITIONS.md
+DEPLOYMENT_*.md
+CODE_QUALITY_*.md
+TROUBLESHOOTING.md
+
+# Utility Scripts
+migrate_to_sqlite.py
+verify_database.py
+run_tests.py
+
+# Backup Files
+*.backup
+*.bak
+data/*.backup
+data/*.json.backup
 *~
 .DS_Store
 
