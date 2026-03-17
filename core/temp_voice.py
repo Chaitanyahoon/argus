@@ -122,7 +122,21 @@ class TempVoiceManager:
         guild = member.guild
         category = self._get_category(guild)
         if not category:
-            logger.warning("TempVoice: no category configured; cannot create temp channel.")
+            logger.warning("TempVoice: cannot create temp channel for %s — category not configured", member.display_name)
+            try:
+                await member.send("❌ **TempVoice not configured.** Your server admin needs to run `!autosetup` or `!settempvcategory`.")
+            except discord.Forbidden:
+                pass
+            return
+
+        # Check for permission issues before attempting creation
+        bot_perms = category.permissions_for(guild.me)
+        if not bot_perms.manage_channels:
+            logger.error("TempVoice: bot lacks manage_channels permission in category %s", category.name)
+            try:
+                await member.send("❌ **Permission Error:** I don't have `manage_channels` permission in the TempVoice category.")
+            except discord.Forbidden:
+                pass
             return
 
         overwrites = {
@@ -139,14 +153,26 @@ class TempVoiceManager:
             ),
         }
 
+        # Sanitize channel name to avoid special characters
         channel_name = f"{member.display_name}'s VC"
+        channel_name = channel_name.replace("*", "").replace("_", " ").replace("`", "")[:100]
+        
         try:
             channel = await category.create_voice_channel(channel_name, overwrites=overwrites)
+            logger.info("TempVoice: created voice channel %s for %s", channel.name, member.display_name)
         except discord.Forbidden as e:
-            logger.error("TempVoice: cannot create channel: %s", e)
+            logger.error("TempVoice: permission denied creating channel: %s", e)
+            try:
+                await member.send("❌ **Permission Error:** I don't have permission to create voice channels.")
+            except discord.Forbidden:
+                pass
             return
         except discord.HTTPException as e:
-            logger.error("TempVoice: create channel HTTP error: %s", e)
+            logger.error("TempVoice: HTTP error creating channel: %s", e)
+            try:
+                await member.send(f"❌ **Error creating channel:** {str(e)[:100]}")
+            except discord.Forbidden:
+                pass
             return
 
         data = TempChannelData(
@@ -157,14 +183,17 @@ class TempVoiceManager:
         )
         self.temp_channels[channel.id] = data
 
+        # Move member to the new channel
         try:
             await member.move_to(channel)
+            logger.info("TempVoice: moved %s to %s", member.display_name, channel.name)
+        except discord.Forbidden:
+            logger.error("TempVoice: permission denied moving member")
         except discord.HTTPException as e:
-            logger.error("TempVoice: move member failed: %s", e)
-            # Channel still created; cleanup on empty
+            logger.error("TempVoice: failed to move member to channel: %s", e)
             return
 
-        # Send welcome + interface: prefer voice channel chat (so it shows in "voice chat" panel), else text channel, else DM
+        # Send interface: text channel preferred (voice channel messages not supported)
         from config import Config
         from .temp_voice_ui import (
             INSTRUCTION_IMAGE_ATTACHMENT_NAME,
@@ -184,94 +213,101 @@ class TempVoiceManager:
             files.append(instruction_file)
             interface_embed.set_image(url=f"attachment://{INSTRUCTION_IMAGE_ATTACHMENT_NAME}")
 
-        welcome_text = f"**Welcome to {channel.mention}!** This is the start of the {channel.name} channel."
+        welcome_text = f"**Welcome to {channel.mention}!** This is your private temporary voice channel."
 
         sent = False
-        # Do not post to the interface channel here; that channel has one shared message (see !postvcinterface).
-        # Always try to send to the voice channel so it appears in the VC chat panel
-        view_vc = TempVoiceView(self, channel, timeout=None)
-        try:
-            await channel.send(
-                welcome_text,
-                embeds=[welcome_embed, interface_embed],
-                view=view_vc,
-                files=files or None,
-            )
-            sent = True
-            logger.info("TempVoice: sent interface to voice channel %s", channel.name)
-        except (AttributeError, discord.HTTPException) as e:
-            logger.debug("TempVoice: cannot send to voice channel (%s), trying text channel or DM", e)
-
-        if not sent:
-            text_channel = self._get_first_text_channel(category)
-            if text_channel:
-                try:
-                    view_fallback = TempVoiceView(self, channel, timeout=None)
+        
+        # Try to send to a text channel in the category
+        text_channel = self._get_first_text_channel(category)
+        if text_channel:
+            try:
+                bot_perms_text = text_channel.permissions_for(guild.me)
+                if bot_perms_text.send_messages and bot_perms_text.embed_links:
+                    view_main = TempVoiceView(self, channel, timeout=None)
                     msg = await text_channel.send(
                         welcome_text,
                         embeds=[welcome_embed, interface_embed],
-                        view=view_fallback,
+                        view=view_main,
                         files=files or None,
                     )
-                    if data.interface_message_id is None:
-                        data.interface_message_id = msg.id
-                        data.interface_channel_id = text_channel.id
+                    data.interface_message_id = msg.id
+                    data.interface_channel_id = text_channel.id
                     sent = True
-                except Exception as e:
-                    logger.error("TempVoice: send interface failed: %s", e)
-            if not sent:
-                try:
-                    view_dm = TempVoiceView(self, channel, timeout=None)
-                    await member.send(
-                        welcome_text,
-                        embeds=[welcome_embed, interface_embed],
-                        view=view_dm,
-                        files=files or None,
-                    )
-                    logger.info("TempVoice: sent interface via DM to %s", member.display_name)
-                except discord.Forbidden:
-                    logger.warning("TempVoice: cannot DM %s (DMs disabled).", member.display_name)
-                except Exception as e:
-                    logger.error("TempVoice: send interface via DM failed: %s", e)
+                    logger.info("TempVoice: sent interface to text channel %s", text_channel.name)
+            except discord.HTTPException as e:
+                logger.debug("TempVoice: failed to send to text channel: %s", e)
 
-        logger.info("TempVoice: created %s for %s", channel.name, member.display_name)
+        # Fallback: send via DM
+        if not sent:
+            try:
+                view_dm = TempVoiceView(self, channel, timeout=None)
+                await member.send(
+                    welcome_text,
+                    embeds=[welcome_embed, interface_embed],
+                    view=view_dm,
+                    files=files or None,
+                )
+                sent = True
+                logger.info("TempVoice: sent interface via DM to %s", member.display_name)
+            except discord.Forbidden:
+                logger.warning("TempVoice: cannot DM %s — DMs disabled", member.display_name)
+            except discord.HTTPException as e:
+                logger.error("TempVoice: failed to send interface via DM: %s", e)
+
+        if sent:
+            logger.info("TempVoice: successfully created and initialized %s", channel.name)
+        else:
+            logger.warning("TempVoice: created channel %s but could not send interface", channel.name)
 
     async def check_cleanup(self, channel: discord.VoiceChannel) -> None:
         """If the channel is a temp channel and empty, delete it and remove from tracking."""
         if channel.id not in self.temp_channels:
             return
+        
+        # Check if channel still has members
         if len(channel.members) > 0:
             return
 
         data = self.temp_channels.pop(channel.id)
+        
         try:
-            await channel.delete(reason="TempVoice: channel empty")
-        except discord.HTTPException as e:
-            logger.error("TempVoice: delete channel failed: %s", e)
-            self.temp_channels[channel.id] = data
-            return
-
-        # Try to remove interface message if we know where it is
-        if data.interface_message_id:
-            guild = channel.guild
-            ch = None
-            if data.interface_channel_id:
-                ch = guild.get_channel(data.interface_channel_id)
+            # Try to remove interface message first
+            if data.interface_message_id:
+                guild = channel.guild
+                text_channel = None
+                
+                if data.interface_channel_id:
+                    text_channel = guild.get_channel(data.interface_channel_id)
+                
+                # Fallback to finding first text channel in category
+                if text_channel is None:
+                    config = self._get_config(guild.id)
+                    cat_id = config.get('temp_voice_category_id')
+                    if cat_id:
+                        cat = guild.get_channel(cat_id)
+                        if cat and isinstance(cat, discord.CategoryChannel):
+                            text_channel = self._get_first_text_channel(cat)
+                
+                if text_channel and isinstance(text_channel, discord.TextChannel):
+                    try:
+                        msg = await text_channel.fetch_message(data.interface_message_id)
+                        await msg.delete()
+                        logger.debug("TempVoice: deleted interface message %s", data.interface_message_id)
+                    except (discord.NotFound, discord.HTTPException):
+                        pass  # Message already deleted or channel inaccessible
             
-            config = self._get_config(guild.id)
-            cat_id = config.get('temp_voice_category_id')
-            if ch is None and cat_id:
-                cat = guild.get_channel(cat_id)
-                if cat and isinstance(cat, discord.CategoryChannel):
-                    ch = self._get_first_text_channel(cat)
-            if ch and isinstance(ch, discord.TextChannel):
-                try:
-                    msg = await ch.fetch_message(data.interface_message_id)
-                    await msg.delete()
-                except (discord.NotFound, discord.HTTPException):
-                    pass
-
-        logger.info("TempVoice: deleted empty channel %s", channel.name)
+            # Delete the voice channel
+            await channel.delete(reason="TempVoice: channel empty")
+            logger.info("TempVoice: cleaned up empty channel %s", channel.name)
+            
+        except discord.Forbidden:
+            logger.error("TempVoice: permission denied deleting channel %s", channel.name)
+            # Re-add to tracking since we couldn't delete it
+            self.temp_channels[channel.id] = data
+        except discord.HTTPException as e:
+            logger.error("TempVoice: failed to delete channel %s: %s", channel.name, e)
+            # Re-add to tracking since we couldn't delete it
+            self.temp_channels[channel.id] = data
 
     def get_data(self, channel_id: int) -> TempChannelData | None:
         return self.temp_channels.get(channel_id)
@@ -291,3 +327,15 @@ class TempVoiceManager:
         data = self.get_data(channel_id)
         if data:
             data.owner_id = new_owner_id
+
+    @property
+    def trigger_channel_id(self) -> int | None:
+        """Return the first configured trigger channel ID (if any guild has one set)."""
+        if not self.argus_manager:
+            return None
+        for guild_id in self.argus_manager.db.guilds:
+            config = self._get_config(guild_id)
+            trigger_id = config.get('temp_voice_trigger_id')
+            if trigger_id:
+                return trigger_id
+        return None
