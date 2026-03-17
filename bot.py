@@ -389,7 +389,8 @@ async def join(ctx: commands.Context):
     channel = ctx.author.voice.channel
     
     if not voice_manager:
-        await ctx.send("❌ Voice not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Voice manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     listener = voice_manager.get_listener(ctx.guild.id)
@@ -397,7 +398,8 @@ async def join(ctx: commands.Context):
 
     try:
         if voice_recv is None:
-            await ctx.send("❌ Voice support not available.")
+            embed = discord.Embed(title="❌ System Error", description="Voice support not available on this system.", color=discord.Color.red())
+            await ctx.send(embed=embed)
             return
         
         if ctx.voice_client:
@@ -462,11 +464,13 @@ async def listen(ctx: commands.Context):
         return
 
     if not voice_manager:
-        await ctx.send("❌ Voice not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Voice manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     listener = voice_manager.get_listener(ctx.guild.id)
-    connecting_msg = await ctx.send("🔄 Connecting to Gemini Live API...")
+    connecting_embed = discord.Embed(title="🔄 Connecting to Gemini Live API", description="Initializing real-time voice session...", color=0x0099ff)
+    connecting_msg = await ctx.send(embed=connecting_embed)
 
     try:
         await listener.start_listening(
@@ -474,10 +478,12 @@ async def listen(ctx: commands.Context):
             log_channel=ctx.channel,
         )
     except asyncio.TimeoutError:
-        await connecting_msg.edit(content="⚠️ **Connection Timeout**: Gemini Live API took too long to respond. Please try again.")
+        timeout_embed = discord.Embed(title="⚠️ Connection Timeout", description="Gemini Live API took too long to respond. Please try again.", color=0x0099ff)
+        await connecting_msg.edit(embed=timeout_embed, content=None)
         return
     except Exception as e:
-        await connecting_msg.edit(content=f"❌ **System Error**: Failed to initialize voice pipeline.\n`{e}`")
+        error_embed = discord.Embed(title="❌ System Error", description=f"Failed to initialize voice pipeline.\n```{str(e)[:500]}```", color=discord.Color.red())
+        await connecting_msg.edit(embed=error_embed, content=None)
         logger.error(f"Voice listener start failure (Guild {ctx.guild.id}): {e}")
         return
 
@@ -533,13 +539,15 @@ async def play_music(ctx: commands.Context, *, query: str = None):
         try:
             vc = await channel.connect(cls=voice_recv.VoiceRecvClient)
         except Exception as e:
-            await ctx.send(f"❌ Could not join voice: {e}")
+            embed = discord.Embed(title="❌ Connection Failed", description=f"```{str(e)[:500]}```", color=discord.Color.red())
+            await ctx.send(embed=embed)
             return
     elif vc.channel != channel:
         await vc.move_to(channel)
 
     if not music_manager:
-        await ctx.send("❌ Music not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Music manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
 
     # Stop AI listener so only music is heard
@@ -547,30 +555,37 @@ async def play_music(ctx: commands.Context, *, query: str = None):
         listener = voice_manager.get_listener(ctx.guild.id)
         await listener.stop_listening()
 
-    msg = await ctx.send("🔍 Resolving track…")
+    loading_embed = discord.Embed(title="🔍 Resolving Track", description="Searching for your track...", color=0x0099ff)
+    msg = await ctx.send(embed=loading_embed)
     tracks = await resolve_tracks(query.strip(), ctx.author)
     if not tracks:
-        await msg.edit(content="❌ Could not resolve that URL or search. Try a different link or query.")
+        error_embed = discord.Embed(title="❌ Track Not Found", description="Could not resolve that URL or search. Try a different link or query.", color=discord.Color.red())
+        await msg.edit(embed=error_embed, content=None)
         return
 
     player = music_manager.get_player_for_vc(vc)
     if not player:
-        await msg.edit(content="❌ Could not get music player.")
+        error_embed = discord.Embed(title="❌ System Error", description="Could not get music player.", color=discord.Color.red())
+        await msg.edit(embed=error_embed, content=None)
         return
 
     if len(tracks) == 1:
         was_empty = not player.is_playing and len(player.queue) == 0
         await player.play(tracks[0])
         if was_empty:
-            await msg.edit(content=f"▶️ **Now playing:** {tracks[0].title}")
+            embed = discord.Embed(title="▶️ Now Playing", description=f"**{tracks[0].title}**", color=0x001a4d)
+            await msg.edit(embed=embed, content=None)
         else:
-            await msg.edit(content=f"✅ Added to queue: **{tracks[0].title}**")
+            embed = discord.Embed(title="✅ Added to Queue", description=f"**{tracks[0].title}**", color=discord.Color.green())
+            await msg.edit(embed=embed, content=None)
     else:
         started = await player.enqueue_many(tracks)
         if started:
-            await msg.edit(content=f"▶️ **Now playing:** {started.title}\n✅ Added **{len(tracks) - 1}** more track(s) to the queue.")
+            embed = discord.Embed(title="▶️ Now Playing", description=f"**{started.title}**\n\n✅ Added **{len(tracks) - 1}** more track(s) to the queue.", color=0x001a4d)
+            await msg.edit(embed=embed, content=None)
         else:
-            await msg.edit(content=f"✅ Added **{len(tracks)}** track(s) to the queue.")
+            embed = discord.Embed(title="✅ Added to Queue", description=f"✅ Added **{len(tracks)}** track(s) to the queue.", color=discord.Color.green())
+            await msg.edit(embed=embed, content=None)
 
 
 @bot.command(name="skip", help="Skip the current track and play the next in queue.")
@@ -616,10 +631,12 @@ async def stop_music(ctx: commands.Context):
 @bot.command(name="queue", help="Show current track and queue.")
 async def queue_music(ctx: commands.Context):
     if not music_manager:
-        await ctx.send("❌ Music not initialized.")
+        embed = discord.Embed(title="❌ System Error", description="Music manager not initialized.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     if not ctx.guild:
-        await ctx.send("❌ Not in a guild.")
+        embed = discord.Embed(title="❌ System Error", description="This command can only be used in a server.", color=discord.Color.red())
+        await ctx.send(embed=embed)
         return
     player = music_manager.get_player(ctx.guild.id)
     current = player.current
