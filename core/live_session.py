@@ -340,15 +340,18 @@ class LiveSession:
             return
 
         try:
-            await self._session.send_realtime_input(
-                audio=types.Blob(
-                    data=pcm_16k_mono,
-                    mime_type="audio/pcm;rate=16000",
+            await self._session.send(
+                input=types.LiveClientRealtimeInput(
+                    media_chunks=[
+                        types.Blob(
+                            data=pcm_16k_mono,
+                            mime_type="audio/pcm;rate=16000",
+                        )
+                    ]
                 )
             )
         except Exception as e:
             logger.error("Error sending audio to Live API: %s", e)
-            # Try to reconnect
             if "close" in str(e).lower() or "websocket" in str(e).lower():
                 asyncio.create_task(self._reconnect())
 
@@ -378,35 +381,21 @@ class LiveSession:
     async def _handle_message(self, msg: types.LiveServerMessage) -> None:
         """Process a single message from the Live API."""
 
-        # Handle audio data
-        if msg.data is not None:
-            logger.info(f"📡 AI Response: Gemini sent {len(msg.data)} bytes of audio data")
-            # Convert 24kHz mono → 48kHz stereo for Discord
-            discord_audio = gemini_to_discord(msg.data)
-            if discord_audio:
-                self._on_audio(discord_audio)
-
-        # Handle text (shouldn't happen with AUDIO modality but just in case)
-        if msg.text is not None:
-            logger.info("Gemini text: %s", msg.text)
-
-        # Handle tool calls (function calling for moderation)
-        if msg.tool_call is not None:
-            await self._handle_tool_call(msg.tool_call)
-
-        # Handle transcriptions
+        # Handle server content (audio, text, turn signals)
         if msg.server_content:
             sc = msg.server_content
 
-            if sc.input_transcription and sc.input_transcription.text:
-                logger.info("User said: %s", sc.input_transcription.text)
-                if self._on_transcript:
-                    await self._on_transcript("input", sc.input_transcription.text)
-
-            if sc.output_transcription and sc.output_transcription.text:
-                logger.info("Bot said: %s", sc.output_transcription.text)
-                if self._on_transcript:
-                    await self._on_transcript("output", sc.output_transcription.text)
+            # Extract audio from model_turn parts
+            if sc.model_turn and sc.model_turn.parts:
+                for part in sc.model_turn.parts:
+                    if hasattr(part, 'inline_data') and part.inline_data and part.inline_data.data:
+                        audio_bytes = part.inline_data.data
+                        logger.info(f"📡 AI Response: Gemini sent {len(audio_bytes)} bytes of audio data")
+                        discord_audio = gemini_to_discord(audio_bytes)
+                        if discord_audio:
+                            self._on_audio(discord_audio)
+                    elif hasattr(part, 'text') and part.text:
+                        logger.info("Gemini text: %s", part.text)
 
             if sc.interrupted:
                 logger.debug("Model response interrupted by user speech.")
@@ -416,6 +405,10 @@ class LiveSession:
             if sc.turn_complete:
                 logger.debug("Model turn complete.")
                 await self._on_turn_complete()
+
+        # Handle tool calls (function calling for moderation)
+        if msg.tool_call is not None:
+            await self._handle_tool_call(msg.tool_call)
 
     async def _handle_tool_call(self, tool_call: types.LiveServerToolCall) -> None:
         """Execute tool calls from the model and send results back."""

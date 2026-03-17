@@ -531,220 +531,321 @@ class VoiceListener:
     async def _exec_kick(self, guild: discord.Guild, username: str, reason: str) -> str:
         member = fuzzy_find_member(guild, username)
         if not member:
-            return f"Could not find user '{username}' in the server."
+            return f"❌ Could not find user '{username}' in the server."
         if member.bot:
-            return f"Cannot kick bot {member.display_name}."
-        await member.kick(reason=reason or "Voice command: kicked by admin")
-        result = f"Successfully kicked {member.display_name} from the server."
-        await self._log_action("kick", member.display_name, reason)
-        return result
+            return f"❌ Cannot kick bot {member.display_name}."
+        if member.id == guild.owner_id:
+            return f"❌ Cannot kick server owner {member.display_name}."
+        if member.top_role.position >= guild.me.top_role.position:
+            return f"❌ Cannot kick {member.display_name} — insufficient permissions (role too high)."
+        try:
+            await member.kick(reason=reason or "Voice command: kicked by admin")
+            result = f"✅ Successfully kicked {member.display_name} from the server."
+            await self._log_action("kick", member.display_name, reason)
+            return result
+        except discord.Forbidden:
+            return f"❌ Permission denied: I cannot kick {member.display_name}."
+        except Exception as e:
+            return f"❌ Failed to kick {member.display_name}: {e}"
 
     async def _exec_ban(self, guild: discord.Guild, username: str, reason: str) -> str:
         member = fuzzy_find_member(guild, username)
         if not member:
-            return f"Could not find user '{username}' in the server."
+            return f"❌ Could not find user '{username}' in the server."
         if member.bot:
-            return f"Cannot ban bot {member.display_name}."
-        await member.ban(reason=reason or "Voice command: banned by admin", delete_message_days=0)
-        result = f"Successfully banned {member.display_name} from the server."
-        await self._log_action("ban", member.display_name, reason)
-        return result
+            return f"❌ Cannot ban bot {member.display_name}."
+        if member.id == guild.owner_id:
+            return f"❌ Cannot ban server owner {member.display_name}."
+        if member.top_role.position >= guild.me.top_role.position:
+            return f"❌ Cannot ban {member.display_name} — insufficient permissions (role too high)."
+        try:
+            await member.ban(reason=reason or "Voice command: banned by admin", delete_message_days=0)
+            result = f"✅ Successfully banned {member.display_name} from the server."
+            await self._log_action("ban", member.display_name, reason)
+            return result
+        except discord.Forbidden:
+            return f"❌ Permission denied: I cannot ban {member.display_name}."
+        except Exception as e:
+            return f"❌ Failed to ban {member.display_name}: {e}"
 
     async def _exec_mute(self, guild: discord.Guild, username: str) -> str:
         member = fuzzy_find_member(guild, username)
         if not member:
-            return f"Could not find user '{username}' in the server."
+            return f"❌ Could not find user '{username}' in the server."
+        if member.bot:
+            return f"❌ Cannot mute bot {member.display_name}."
         if not member.voice:
-            return f"{member.display_name} is not in a voice channel."
-        await member.edit(mute=True, reason="Voice command: muted by admin")
-        result = f"Successfully muted {member.display_name}."
-        await self._log_action("mute", member.display_name)
-        return result
+            return f"❌ {member.display_name} is not in a voice channel."
+        if member.voice.mute:
+            return f"❌ {member.display_name} is already muted."
+        try:
+            await member.edit(mute=True, reason="Voice command: muted by admin")
+            result = f"✅ Successfully muted {member.display_name}."
+            await self._log_action("mute", member.display_name)
+            return result
+        except discord.Forbidden:
+            return f"❌ Permission denied: I cannot mute {member.display_name}."
+        except Exception as e:
+            return f"❌ Failed to mute {member.display_name}: {e}"
 
     async def _exec_unmute(self, guild: discord.Guild, username: str) -> str:
         member = fuzzy_find_member(guild, username)
         if not member:
-            return f"Could not find user '{username}' in the server."
+            return f"❌ Could not find user '{username}' in the server."
+        if member.bot:
+            return f"❌ Cannot unmute bot {member.display_name}."
         if not member.voice:
-            return f"{member.display_name} is not in a voice channel."
-        await member.edit(mute=False, reason="Voice command: unmuted by admin")
-        result = f"Successfully unmuted {member.display_name}."
-        await self._log_action("unmute", member.display_name)
-        return result
+            return f"❌ {member.display_name} is not in a voice channel."
+        if not member.voice.mute:
+            return f"❌ {member.display_name} is not muted."
+        try:
+            await member.edit(mute=False, reason="Voice command: unmuted by admin")
+            result = f"✅ Successfully unmuted {member.display_name}."
+            await self._log_action("unmute", member.display_name)
+            return result
+        except discord.Forbidden:
+            return f"❌ Permission denied: I cannot unmute {member.display_name}."
+        except Exception as e:
+            return f"❌ Failed to unmute {member.display_name}: {e}"
 
     async def _exec_create_channel(self, guild: discord.Guild, channel_name: str) -> str:
         clean_name = channel_name.strip().replace(" ", "-").lower()
         if not clean_name:
-            return "No channel name specified."
+            return "❌ No channel name specified."
+        if len(clean_name) > 100:
+            return "❌ Channel name too long (max 100 characters)."
+        if len(guild.channels) >= 500:
+            return "❌ Cannot create channel: server channel limit reached (500 max)."
 
         existing = fuzzy_find_channel(guild, clean_name, discord.ChannelType.voice)
         if existing and existing.name.lower() == clean_name:
-            return f"Voice channel '{existing.name}' already exists."
+            return f"❌ Voice channel '{existing.name}' already exists."
 
-        channel = await guild.create_voice_channel(
-            name=clean_name,
-            reason="Voice command: created by admin",
-        )
-        result = f"Successfully created voice channel '{channel.name}'."
-        await self._log_action("create_channel", channel.name)
-        return result
+        try:
+            channel = await guild.create_voice_channel(
+                name=clean_name,
+                reason="Voice command: created by admin",
+            )
+            result = f"✅ Successfully created voice channel '{channel.name}'."
+            await self._log_action("create_channel", channel.name)
+            return result
+        except discord.Forbidden:
+            return "❌ Permission denied: I cannot create channels."
+        except Exception as e:
+            return f"❌ Failed to create channel: {e}"
 
     async def _exec_delete_channel(self, guild: discord.Guild, channel_name: str) -> str:
+        if not channel_name:
+            return "❌ No channel name specified."
+        
         channel = fuzzy_find_channel(guild, channel_name, discord.ChannelType.voice)
         if not channel:
-            return f"Could not find voice channel '{channel_name}'."
+            return f"❌ Could not find voice channel '{channel_name}'."
+        
+        # Protect against deleting important channels
+        if channel.members:
+            count = len(channel.members)
+            return f"❌ Cannot delete channel with {count} active member(s) — please move them first."
+        
         name = channel.name
-        await channel.delete(reason="Voice command: deleted by admin")
-        result = f"Successfully deleted voice channel '{name}'."
-        await self._log_action("delete_channel", name)
-        return result
+        try:
+            await channel.delete(reason="Voice command: deleted by admin")
+            result = f"✅ Successfully deleted voice channel '{name}'."
+            await self._log_action("delete_channel", name)
+            return result
+        except discord.Forbidden:
+            return "❌ Permission denied: I cannot delete channels."
+        except Exception as e:
+            return f"❌ Failed to delete channel: {e}"
 
     async def _log_action(self, action: str, target: str, reason: str = "") -> None:
         if not self._log_channel:
             return
         try:
+            import datetime
+            timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             embed = discord.Embed(
                 title=f"⚡ {action.replace('_', ' ').title()}",
-                description=f"**Target:** {target}" + (f"\n**Reason:** {reason}" if reason else ""),
+                description=f"**Target:** {target}" + (f"\n**Reason:** {reason}" if reason else "") + f"\n**Time:** {timestamp}",
                 color=discord.Color.orange(),
             )
+            embed.set_footer(text="Voice Command Log")
             await self._log_channel.send(embed=embed)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to log action: %s", e)
 
     # --- Music Tool Implementations ---
 
     async def _exec_play_music(self, query: str) -> str:
         if not query:
-            return "No song specified."
+            return "❌ No song specified. Try: play jazz music, or play artist name."
         mm = getattr(self.bot, "music_manager", None)
         if not mm or not self._voice_client:
-            return "Music player not ready."
+            return "❌ Music player not ready. Are we in a voice channel?"
         
-        # Resolve tracks (uses yt-dlp/Spotify scraper)
-        from .music_player import resolve_tracks
-        # We need an author for the track. We'll use the bot for voice-triggered plays or try to find a human.
-        tracks = await resolve_tracks(query, self.bot.user) 
-        if not tracks:
-            return f"Could not find music for '{query}'."
-        
-        player = mm.get_player_for_vc(self._voice_client)
-        if len(tracks) == 1:
-            await player.play(tracks[0])
-            return f"▶️ Now playing: {tracks[0].title}"
-        else:
-            await player.enqueue_many(tracks)
-            return f"✅ Added {len(tracks)} tracks to queue."
+        try:
+            # Resolve tracks (uses yt-dlp/Spotify scraper)
+            from .music_player import resolve_tracks
+            tracks = await resolve_tracks(query, self.bot.user) 
+            if not tracks:
+                return f"❌ Could not find music for '{query}'. Try another search."
+            
+            player = mm.get_player_for_vc(self._voice_client)
+            if len(tracks) == 1:
+                await player.play(tracks[0])
+                return f"▶️ Now playing: {tracks[0].title}"
+            else:
+                await player.enqueue_many(tracks)
+                return f"✅ Added {len(tracks)} tracks to queue. Use 'skip' to go to the next one."
+        except Exception as e:
+            logger.error("Music player error: %s", e)
+            return f"❌ Music error: {e}"
 
     async def _exec_skip_music(self) -> str:
         mm = getattr(self.bot, "music_manager", None)
         if not mm or not self._voice_client:
-            return "Music player not ready."
-        player = mm.get_player_for_vc(self._voice_client)
-        await player.skip()
-        return "⏭️ Skipped current track."
+            return "❌ Music player not ready."
+        try:
+            player = mm.get_player_for_vc(self._voice_client)
+            await player.skip()
+            next_track = player.queue[0] if player.queue else None
+            if next_track:
+                return f"⏭️ Skipped. Now playing: {next_track.title}"
+            else:
+                return "⏭️ Skipped. Queue is now empty."
+        except Exception as e:
+            return f"❌ Skip failed: {e}"
 
     async def _exec_stop_music(self) -> str:
         mm = getattr(self.bot, "music_manager", None)
         if not mm or not self._voice_client:
-            return "Music player not ready."
-        player = mm.get_player_for_vc(self._voice_client)
-        await player.stop()
-        return "⏹️ Stopped music and cleared queue."
+            return "❌ Music player not ready."
+        try:
+            player = mm.get_player_for_vc(self._voice_client)
+            await player.stop()
+            return "⏹️ Stopped music. Queue cleared. Say 'play' to start music again."
+        except Exception as e:
+            return f"❌ Stop failed: {e}"
 
     async def _exec_show_queue(self) -> str:
         mm = getattr(self.bot, "music_manager", None)
         if not mm or not self._voice_client:
-            return "Music player not ready."
-        player = mm.get_player_for_vc(self._voice_client)
-        q = player.queue
-        if not q:
-            return "The queue is empty."
-        
-        lines = [f"**Current Queue ({len(q)} tracks):**"]
-        for i, t in enumerate(q[:5], 1):
-            lines.append(f"{i}. {t.title}")
-        if len(q) > 5:
-            lines.append(f"... and {len(q)-5} more.")
-        return "\n".join(lines)
+            return "❌ Music player not ready."
+        try:
+            player = mm.get_player_for_vc(self._voice_client)
+            q = player.queue
+            if not q:
+                return "📭 The queue is empty. Say 'play' to add music."
+            
+            lines = [f"🎵 Queue ({len(q)} tracks):"]
+            for i, t in enumerate(q[:5], 1):
+                lines.append(f"{i}. {t.title}")
+            if len(q) > 5:
+                lines.append(f"... and {len(q)-5} more.")
+            return "\n".join(lines)
+        except Exception as e:
+            return f"❌ Queue error: {e}"
 
     # --- Temp VC Tool Implementations ---
 
     async def _exec_lock_vc(self) -> str:
         manager = getattr(self.bot, "temp_voice_manager", None)
         if not manager or not self._voice_client:
-            return "Temp VC manager not ready."
-        
-        # We assume the user who is speaking wants to manage THEIR channel.
-        # However, since we don't have the speaker's ID passed into the tool directly from Gemini easily 
-        # (unless we correlate via state), we'll look for the channel the bot is in and check owner.
-        # For simplicity in this implementation, we'll try to find if any admin in the VC owns it.
+            return "❌ Temp VC manager not ready."
         
         ch = self._voice_client.channel
         data = manager.get_data(ch.id)
         if not data:
-            return "This is not a temporary voice channel."
+            return "❌ This is not a temporary voice channel."
         
-        data.locked = True
-        await ch.set_permissions(ch.guild.default_role, connect=False, view_channel=True)
-        return f"🔒 Your channel '{ch.name}' is now locked."
+        if data.locked:
+            return f"❌ Channel '{ch.name}' is already locked."
+        
+        try:
+            data.locked = True
+            await ch.set_permissions(ch.guild.default_role, connect=False, view_channel=True)
+            return f"🔒 Your channel '{ch.name}' is now locked. Only invited members can join."
+        except Exception as e:
+            return f"❌ Failed to lock channel: {e}"
 
     async def _exec_unlock_vc(self) -> str:
         manager = getattr(self.bot, "temp_voice_manager", None)
         if not manager or not self._voice_client:
-            return "Temp VC manager not ready."
+            return "❌ Temp VC manager not ready."
         ch = self._voice_client.channel
         data = manager.get_data(ch.id)
         if not data:
-            return "This is not a temporary voice channel."
+            return "❌ This is not a temporary voice channel."
         
-        data.locked = False
-        await ch.set_permissions(ch.guild.default_role, connect=True, view_channel=True)
-        return f"🔓 Your channel '{ch.name}' is now unlocked."
+        if not data.locked:
+            return f"❌ Channel '{ch.name}' is already unlocked."
+        
+        try:
+            data.locked = False
+            await ch.set_permissions(ch.guild.default_role, connect=True, view_channel=True)
+            return f"🔓 Your channel '{ch.name}' is now unlocked. Anyone can join."
+        except Exception as e:
+            return f"❌ Failed to unlock channel: {e}"
 
     async def _exec_rename_vc(self, new_name: str) -> str:
         if not new_name:
-            return "No name provided."
+            return "❌ No name provided."
         manager = getattr(self.bot, "temp_voice_manager", None)
         if not manager or not self._voice_client:
-            return "Temp VC manager not ready."
+            return "❌ Temp VC manager not ready."
         ch = self._voice_client.channel
         if ch.id not in manager.temp_channels:
-            return "This is not a temporary voice channel."
+            return "❌ This is not a temporary voice channel."
         
-        await ch.edit(name=new_name)
-        return f"📝 Renamed channel to '{new_name}'."
+        if len(new_name) > 100:
+            return "❌ Channel name too long (max 100 characters)."
+        
+        try:
+            old_name = ch.name
+            await ch.edit(name=new_name)
+            return f"📝 Renamed channel from '{old_name}' to '{new_name}'."
+        except Exception as e:
+            return f"❌ Failed to rename channel: {e}"
 
     async def _exec_limit_vc(self, limit: int) -> str:
         manager = getattr(self.bot, "temp_voice_manager", None)
         if not manager or not self._voice_client:
-            return "Temp VC manager not ready."
+            return "❌ Temp VC manager not ready."
         ch = self._voice_client.channel
         if ch.id not in manager.temp_channels:
-            return "This is not a temporary voice channel."
+            return "❌ This is not a temporary voice channel."
         
         limit = max(0, min(99, limit))
-        await ch.edit(user_limit=limit)
-        return f"👥 User limit set to {limit}."
+        try:
+            await ch.edit(user_limit=limit)
+            if limit == 0:
+                return f"👥 User limit removed from '{ch.name}' (unlimited)."
+            else:
+                return f"👥 User limit for '{ch.name}' set to {limit} members."
+        except Exception as e:
+            return f"❌ Failed to set user limit: {e}"
 
     async def _exec_kick_from_vc(self, username: str) -> str:
         if not username:
-            return "No user specified."
+            return "❌ No user specified."
         manager = getattr(self.bot, "temp_voice_manager", None)
         if not manager or not self._voice_client:
-            return "Temp VC manager not ready."
+            return "❌ Temp VC manager not ready."
         ch = self._voice_client.channel
         if ch.id not in manager.temp_channels:
-            return "This is not a temporary voice channel."
+            return "❌ This is not a temporary voice channel."
         
         member = fuzzy_find_member(ch.guild, username)
         if not member:
-            return f"Could not find user '{username}'."
+            return f"❌ Could not find user '{username}'."
         if member not in ch.members:
-            return f"{member.display_name} is not in your VC."
+            return f"❌ {member.display_name} is not in your channel."
         
-        await member.move_to(None, reason="Voice command: kicked from temp VC")
-        return f"👢 Kicked {member.display_name} from your channel."
+        try:
+            await member.move_to(None, reason="Voice command: kicked from temp VC")
+            return f"👢 Kicked {member.display_name} from '{ch.name}'."
+        except Exception as e:
+            return f"❌ Failed to kick {member.display_name}: {e}"
 
     # --- Argus Systems Tool Implementations ---
 

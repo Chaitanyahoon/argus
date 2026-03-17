@@ -10,12 +10,14 @@ import asyncio
 import builtins
 import logging
 import os
+from typing import Optional, Tuple
 
 import discord
 from discord.ext import commands
 from discord import utils
 
 from config import Config
+from logger import setup_logging, get_logger
 from core.voice_listener import VoiceManager
 from core.temp_voice import TempVoiceManager
 from core.temp_voice_ui import TempVoiceView
@@ -43,13 +45,13 @@ if not discord.opus.is_loaded():
         except Exception:
             continue
 
-# ── Logging ──────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s │ %(levelname)-8s │ %(name)s │ %(message)s",
-    datefmt="%H:%M:%S",
+# ── Structured Logging ──────────────────────────────────────────────────────
+setup_logging(
+    log_level=Config.LOG_LEVEL,
+    log_dir="logs",
+    include_file_handler=True,
 )
-logger = logging.getLogger("bot")
+logger = get_logger("bot")
 
 # Suppress noisy logs
 logging.getLogger("discord.opus").setLevel(logging.CRITICAL)
@@ -66,6 +68,33 @@ def _filtered_print(*args, **kwargs):
             return
     _original_print(*args, **kwargs)
 builtins.print = _filtered_print
+
+# ── Cooldown & Rate Limiting ────────────────────────────────────────────────
+import time
+from collections import defaultdict
+from typing import Dict, List
+
+# Track voice command attempts per guild to prevent spam
+_voice_command_attempts: Dict[int, List[float]] = defaultdict(list)
+_VOICE_COMMAND_RATE_LIMIT: int = 5  # max 5 commands per guild
+_VOICE_COMMAND_TIME_WINDOW: int = 30  # in this many seconds
+
+
+def check_voice_command_rate_limit(guild_id: int) -> Tuple[bool, str]:
+    """Check if a guild is rate-limited for voice commands."""
+    now = time.time()
+    attempts = _voice_command_attempts[guild_id]
+    
+    # Clean old attempts (older than time window)
+    attempts[:] = [t for t in attempts if now - t < _VOICE_COMMAND_TIME_WINDOW]
+    
+    if len(attempts) >= _VOICE_COMMAND_RATE_LIMIT:
+        retry_after = int(_VOICE_COMMAND_TIME_WINDOW - (now - attempts[0])) + 1
+        return False, f"⏳ Too many voice commands. Wait {retry_after}s before trying again."
+    
+    attempts.append(now)
+    return True, ""
+
 
 # ── Dynamic Prefix ──────────────────────────────────────────────────────────
 def get_prefix(bot, message):
@@ -97,7 +126,31 @@ voice_manager: VoiceManager | None = None
 temp_voice_manager: TempVoiceManager | None = None
 music_manager: MusicManager | None = None
 argus_manager: ArgusManager | None = None
-# dashboard_api replaced by fastapi task
+
+# Status rotation list
+_STATUS_ROTATION = [
+    (discord.ActivityType.watching, "the evolution..."),
+    (discord.ActivityType.listening, "voice commands"),
+    (discord.ActivityType.playing, "Gemini 2.0 Flash"),
+    (discord.ActivityType.watching, "your server"),
+]
+_STATUS_INDEX = 0
+
+
+async def _update_bot_status() -> None:
+    """Periodically update bot status for visual engagement."""
+    global _STATUS_INDEX
+    try:
+        while True:
+            await asyncio.sleep(30)  # Update every 30 seconds
+            activity_type, status_text = _STATUS_ROTATION[_STATUS_INDEX]
+            activity = discord.Activity(type=activity_type, name=status_text)
+            await bot.change_presence(activity=activity, status=discord.Status.online)
+            _STATUS_INDEX = (_STATUS_INDEX + 1) % len(_STATUS_ROTATION)
+    except asyncio.CancelledError:
+        pass
+    except Exception as e:
+        logger.error("Status update error: %s", e)
 
 
 # ── Events ───────────────────────────────────────────────────────────────────
@@ -116,8 +169,6 @@ async def on_ready():
     music_manager = MusicManager()
     bot.music_manager = music_manager
     
-    
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="the evolution..."))
     try:
         synced = await bot.tree.sync()
         logger.info("  Synced %d slash command(s)", len(synced))
@@ -127,9 +178,12 @@ async def on_ready():
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     logger.info("  👁️ Argus is online: %s (ID: %s)", bot.user.name, bot.user.id)
     logger.info("  📡 Connected to %d guild(s)", len(bot.guilds))
-    logger.info("  🧠 AI: Gemini 2.0 Flash (Sentient Mode)")
+    logger.info("  🧠 AI: Gemini 2.5 Flash (Live Audio Mode)")
     logger.info("  ✅ Ready! Use %sjoin to connect, then %slisten to start.",
                 Config.COMMAND_PREFIX, Config.COMMAND_PREFIX)
+    
+    # Start status rotation
+    bot.loop.create_task(_update_bot_status())
     
     if argus_manager:
         bot.loop.create_task(argus_manager.start_random_events())
@@ -300,6 +354,13 @@ async def listen(ctx: commands.Context):
     if ctx.author.id not in Config.ADMIN_USER_IDS and not ctx.author.guild_permissions.administrator:
         await ctx.send("🚫 You don't have permission to use voice commands.")
         return
+    
+    # Check guild-level rate limit to prevent spam
+    can_proceed, rate_limit_msg = check_voice_command_rate_limit(ctx.guild.id)
+    if not can_proceed:
+        await ctx.send(rate_limit_msg)
+        return
+    
     if not ctx.voice_client:
         await ctx.send(f"❌ Use `{Config.COMMAND_PREFIX}join` first so I'm in your voice channel.")
         return
@@ -758,7 +819,10 @@ async def on_command_error(ctx: commands.Context, error):
     if isinstance(error, commands.MissingPermissions):
         await ctx.send("🚫 Error: Insufficient permissions to execute this command.")
         return
-    logger.error("Command error: %s", error)
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Missing argument: `{error.param.name}`. Check `{ctx.prefix}help {ctx.command.name}`")
+        return
+    logger.error("Command error in %s: %s", ctx.command.name if ctx.command else "unknown", error)
     # Don't spam text for every error, but provide a generic failure if it's not handled
     try:
         await ctx.send(f"❌ System Exception: `{error}`")

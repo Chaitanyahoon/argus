@@ -5,6 +5,7 @@ Multilingual support with automatic language detection.
 
 import io
 import logging
+from typing import Optional
 
 from faster_whisper import WhisperModel
 
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 class Transcriber:
     """Handles speech-to-text using faster-whisper (multilingual)."""
 
-    def __init__(self):
+    model: WhisperModel
+
+    def __init__(self) -> None:
         logger.info(
             "Loading Whisper model '%s' (this may take a moment on first run)...",
             Config.WHISPER_MODEL,
@@ -28,7 +31,7 @@ class Transcriber:
         )
         logger.info("Whisper model loaded successfully.")
 
-    def transcribe_wav(self, wav_bytes: bytes) -> str | None:
+    def transcribe_wav(self, wav_bytes: bytes) -> Optional[str]:
         """
         Transcribe WAV audio bytes to text.
 
@@ -52,11 +55,11 @@ class Transcriber:
                 ),
             )
 
-            text_parts = []
+            text_parts: list[str] = []
             for segment in segments:
                 text_parts.append(segment.text.strip())
 
-            full_text = " ".join(text_parts).strip()
+            full_text: str = " ".join(text_parts).strip()
 
             if full_text:
                 logger.info(
