@@ -47,6 +47,10 @@ _RESTART_MAX_DELAY = 30.0  # cap the backoff
 _WARN_INTERVAL = 5.0  # seconds between corrupted-packet warnings
 _MAX_SESSION_DURATION = 600  # 10 minutes session limit
 
+# Minimum audio buffer before responding (5 seconds at 48kHz stereo, 32-bit)
+# 5 seconds * 48000 Hz * 2 channels * 4 bytes = 1,920,000 bytes
+_MIN_BUFFER_BYTES_FOR_RESPONSE = 5 * 48000 * 2 * 4  # 1,920,000 bytes
+
 # ── Monkey-patch: make PacketRouter resilient to corrupted packets ──────────
 #
 # The library's _do_run() has no per-packet error handling.  A single
@@ -180,12 +184,15 @@ logger.info("Patched AudioReader.callback for DAVE E2EE decryption.")
 def make_receive_callback(live_session: LiveSession, loop: asyncio.AbstractEventLoop):
     """Build a callback for voice_recv.BasicSink that forwards PCM to Gemini."""
     buffer = bytearray()
-    state = {"write_count": 0}
+    state = {
+        "write_count": 0,
+        "total_bytes_received": 0,
+        "started_sending": False,  # Flag to track if we've reached minimum buffer
+    }
 
     def callback(member, data) -> None:
         try:
             if member is None:
-                # logger.debug("Voice recv: member is None")
                 return
             if member.id not in Config.ADMIN_USER_IDS:
                 if state["write_count"] % 100 == 0:
@@ -195,6 +202,7 @@ def make_receive_callback(live_session: LiveSession, loop: asyncio.AbstractEvent
             if not pcm or not isinstance(pcm, (bytes, bytearray)):
                 return
             pcm = bytes(pcm)
+            
             # voice_recv may send mono (1920 bytes = 20ms @ 48kHz) or 960; we need 48k stereo (3840/frame)
             if len(pcm) == 1920:
                 buffer.extend(pcm)
@@ -206,24 +214,40 @@ def make_receive_callback(live_session: LiveSession, loop: asyncio.AbstractEvent
                 buffer.extend(pcm)
             else:
                 buffer.extend(pcm)
+            
             state["write_count"] += 1
+            state["total_bytes_received"] += len(pcm)
+            
+            # Check if we've accumulated enough audio to start responding
+            if not state["started_sending"] and state["total_bytes_received"] >= _MIN_BUFFER_BYTES_FOR_RESPONSE:
+                state["started_sending"] = True
+                logger.info(
+                    "Voice buffer ready: accumulated %.1f seconds of audio (%d bytes), starting response stream",
+                    state["total_bytes_received"] / (48000 * 2 * 4),
+                    state["total_bytes_received"]
+                )
+            
             if state["write_count"] <= _LOG_FIRST_N_RECEIVES:
                 logger.info(
-                    "Voice recv #%s: user=%s len=%s (expected 3840 per frame if PCM)",
+                    "Voice recv #%s: user=%s len=%s (total: %.1fs, min required: 5s)",
                     state["write_count"],
                     getattr(member, "id", None),
                     len(pcm),
+                    state["total_bytes_received"] / (48000 * 2 * 4),
                 )
-            while len(buffer) >= _CHUNK_BYTES:
-                chunk = bytes(buffer[: _CHUNK_BYTES])
-                del buffer[: _CHUNK_BYTES]
-                gemini_audio = discord_to_gemini(chunk)
-                if not gemini_audio:
-                    continue
-                asyncio.run_coroutine_threadsafe(
-                    live_session.send_audio(gemini_audio),
-                    loop,
-                )
+            
+            # Only send audio chunks if we've accumulated minimum buffer
+            if state["started_sending"]:
+                while len(buffer) >= _CHUNK_BYTES:
+                    chunk = bytes(buffer[: _CHUNK_BYTES])
+                    del buffer[: _CHUNK_BYTES]
+                    gemini_audio = discord_to_gemini(chunk)
+                    if not gemini_audio:
+                        continue
+                    asyncio.run_coroutine_threadsafe(
+                        live_session.send_audio(gemini_audio),
+                        loop,
+                    )
         except Exception as e:
             logger.exception("Voice recv callback error (router will not be stopped): %s", e)
 

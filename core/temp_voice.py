@@ -331,11 +331,26 @@ class TempVoiceManager:
     @property
     def trigger_channel_id(self) -> int | None:
         """Return the first configured trigger channel ID (if any guild has one set)."""
-        if not self.argus_manager:
+        if not self.argus_manager or not hasattr(self.argus_manager, 'db'):
             return None
-        for guild_id in self.argus_manager.db.guilds:
-            config = self._get_config(guild_id)
-            trigger_id = config.get('temp_voice_trigger_id')
-            if trigger_id:
-                return trigger_id
+        try:
+            all_guilds = self.argus_manager.db.get_all_guilds()
+            if not all_guilds:
+                return None
+            for guild_row in all_guilds:
+                # Handle both dict and Row-like objects
+                guild_dict = dict(guild_row) if hasattr(guild_row, 'keys') else (guild_row if isinstance(guild_row, dict) else {})
+                guild_data = guild_dict.get('data', {})
+                if isinstance(guild_data, str):
+                    import json
+                    try:
+                        guild_data = json.loads(guild_data)
+                    except (json.JSONDecodeError, TypeError):
+                        guild_data = {}
+                if isinstance(guild_data, dict):
+                    trigger_id = guild_data.get('temp_voice_trigger_id')
+                    if trigger_id:
+                        return int(trigger_id) if isinstance(trigger_id, str) else trigger_id
+        except Exception as e:
+            logger.debug("TempVoice: error getting trigger_channel_id: %s", e)
         return None
