@@ -62,39 +62,36 @@ def get_performance_tracker() -> PerformanceTracker:
 
 # ── Timing Decorator ────────────────────────────────────────────────────────
 
-F = TypeVar('F', bound=Callable[..., Awaitable[Any]])
+_AnyCallable = Callable[..., Awaitable[Any]]
 
-def measure_performance(operation_name: Optional[str] = None) -> Callable[[F], F]:
+def measure_performance(operation_name: Optional[str] = None) -> Callable[[_AnyCallable], _AnyCallable]:
     """
     Decorator to measure and log function execution time.
-    
+
     Usage:
         @measure_performance("send_audio")
         async def send_audio(self, pcm):
             ...
     """
-    def decorator(func: F) -> F:
-        op_name = operation_name or func.__name__
-        
+    def decorator(func: _AnyCallable) -> _AnyCallable:
+        op_name = operation_name or getattr(func, "__name__", repr(func))
+
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            logger = logging.getLogger(func.__module__)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            _logger = logging.getLogger(getattr(func, "__module__", __name__))
             start = time.perf_counter()
-            
             try:
                 result = await func(*args, **kwargs)
                 return result
             finally:
                 duration = time.perf_counter() - start
                 _performance_tracker.record(op_name, duration)
-                
-                # Log slow operations
-                if duration > 1.0:  # Warn if >1 second
-                    logger.warning(f"⚠️ {op_name} took {duration:.3f}s (slow operation)")
+                if duration > 1.0:
+                    _logger.warning("⚠️ %s took %.3fs (slow operation)", op_name, duration)
                 else:
-                    logger.debug(f"⏱️ {op_name} took {duration:.3f}s")
-        
-        return wrapper  # type: ignore
+                    _logger.debug("⏱️ %s took %.3fs", op_name, duration)
+
+        return wrapper  # type: ignore[return-value]
     return decorator
 
 
@@ -151,8 +148,8 @@ class JSONFormatter(logging.Formatter):
             'line': record.lineno,
         }
         
-        if record.exc_info:
-            log_data['exception'] = self.formatException(record.exc_info)
+        if record.exc_info and record.exc_info[0] is not None:
+            log_data['exception'] = self.formatException(record.exc_info)  # type: ignore[arg-type]
         
         return json.dumps(log_data)
 
