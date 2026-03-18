@@ -1,9 +1,14 @@
+"""
+AutoMod Cog — AI-powered moderation and surveillance.
+"""
+
 import discord
 from discord.ext import commands
 import logging
-from typing import Optional
+import core.embeds as E
 
 logger = logging.getLogger(__name__)
+
 
 class AutoModCog(commands.Cog, name="AutoMod"):
     """AI-powered moderation and surveillance."""
@@ -18,88 +23,129 @@ class AutoModCog(commands.Cog, name="AutoMod"):
     @commands.has_permissions(administrator=True)
     async def automod(self, ctx: commands.Context):
         if ctx.invoked_subcommand is None:
-            await ctx.send_help(ctx.command)
+            embed = E.info(
+                "🛡️ AutoMod Commands",
+                "`!automod toggle toxicity` — toggle toxicity detection\n"
+                "`!automod toggle spam`     — toggle spam detection\n"
+                "`!automod threshold <0.1–1.0>` — set AI sensitivity\n"
+                "`!automod status`          — show current settings",
+                ctx,
+            )
+            await ctx.send(embed=embed)
 
-    @automod.command(name="toggle", help="Toggle toxicity or spam detection (e.g., !automod toggle toxicity).")
+    @automod.command(name="toggle", help="Toggle toxicity or spam detection.")
     async def toggle_mod(self, ctx: commands.Context, setting: str):
         am = self.get_argus_manager()
-        if not am: return
-        
+        if not am:
+            return
+
         setting = setting.lower()
         if setting not in ["toxicity", "spam"]:
-            await ctx.send("❌ Use `toxicity` or `spam`.")
+            await ctx.send(embed=E.error("Invalid Setting", "Use `toxicity` or `spam`.", ctx))
             return
-            
-        guild_data = am.db.get_guild(ctx.guild.id) or {}
-        key = f"automod_{setting}_enabled"
-        current = guild_data.get(key, 0)
-        new_val = 1 if current == 0 else 0
-        
-        am.db.update_guild(ctx.guild.id, **{key: new_val})
-        status = "ENABLED" if new_val == 1 else "DISABLED"
-        await ctx.send(f"🛡️ AI **{setting.upper()}** detection is now **{status}**.")
 
-    @automod.command(name="threshold", help="Set the AI sensitivity threshold (0.1 to 1.0).")
+        guild_data = am.db.get_guild(ctx.guild.id) or {}
+        key        = f"automod_{setting}_enabled"
+        new_val    = 0 if guild_data.get(key, 0) == 1 else 1
+        am.db.update_guild(ctx.guild.id, **{key: new_val})
+
+        if new_val:
+            await ctx.send(embed=E.success(
+                f"🛡️ {setting.title()} Detection Enabled",
+                f"AI **{setting.upper()}** scanning is now **active**.",
+                ctx,
+            ))
+        else:
+            await ctx.send(embed=E.warning(
+                f"🛡️ {setting.title()} Detection Disabled",
+                f"AI **{setting.upper()}** scanning has been turned off.",
+                ctx,
+            ))
+
+    @automod.command(name="threshold", help="Set AI sensitivity threshold (0.1 = strict, 1.0 = lenient).")
     async def set_threshold(self, ctx: commands.Context, value: float):
         am = self.get_argus_manager()
-        if not am: return
-        
-        if not (0.1 <= value <= 1.0):
-            await ctx.send("❌ Threshold must be between 0.1 (strict) and 1.0 (lenient).")
+        if not am:
             return
-            
-        am.db.update_guild(ctx.guild.id, automod_threshold=value)
-        await ctx.send(f"🎯 AI sensitivity threshold set to **{value}**.")
 
+        if not (0.1 <= value <= 1.0):
+            await ctx.send(embed=E.error(
+                "Invalid Threshold",
+                "Value must be between `0.1` (very strict) and `1.0` (very lenient).",
+                ctx,
+            ))
+            return
+
+        am.db.update_guild(ctx.guild.id, automod_threshold=value)
+        bar = "█" * round(value * 10) + "░" * (10 - round(value * 10))
+        label = "Strict" if value < 0.4 else "Balanced" if value < 0.7 else "Lenient"
+        await ctx.send(embed=E.info(
+            "🎯 Sensitivity Updated",
+            f"`{bar}` **{value}** ({label})",
+            ctx,
+        ))
+
+    @automod.command(name="status", help="Show current AutoMod settings.")
+    async def automod_status(self, ctx: commands.Context):
+        am = self.get_argus_manager()
+        if not am:
+            return
+        data      = am.db.get_guild(ctx.guild.id) or {}
+        tox       = bool(data.get("automod_toxicity_enabled", 0))
+        spam      = bool(data.get("automod_spam_enabled",     0))
+        threshold = data.get("automod_threshold", 0.7)
+        bar       = "█" * round(threshold * 10) + "░" * (10 - round(threshold * 10))
+
+        embed = E.navy("🛡️ AutoMod Status", "", ctx)
+        embed.add_field(name="Toxicity Detection", value="✅ On" if tox  else "❌ Off", inline=True)
+        embed.add_field(name="Spam Detection",     value="✅ On" if spam else "❌ Off", inline=True)
+        embed.add_field(name="AI Threshold",       value=f"`{bar}` {threshold}",        inline=False)
+        await ctx.send(embed=embed)
+
+    # ── Event listener ─────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild or not message.content:
             return
-            
+
         am = self.get_argus_manager()
-        if not am: return
-        
+        if not am:
+            return
+
         guild_data = am.db.get_guild(message.guild.id) or {}
-        
-        # 1. Toxicity Check
+
         if guild_data.get("automod_toxicity_enabled", 0) == 1:
             threshold = guild_data.get("automod_threshold", 0.7)
-            
-            # Perform AI scan
-            result = await am.analyze_content(message.content)
-            score = result.get("score", 0.0)
-            
+            result    = await am.analyze_content(message.content)
+            score     = result.get("score", 0.0)
+
             if score >= threshold or result.get("toxic", False):
-                logger.info(f"AI Flagged Toxicity: {score} | Reason: {result.get('reason')} | User: {message.author}")
-                
-                # Take Action
+                logger.info(
+                    "AutoMod flagged toxicity %.2f | %s | %s",
+                    score, result.get("reason"), message.author,
+                )
                 try:
                     await message.delete()
-                    
-                    # Notify Nexus
-                    embed = am.create_argus_embed(
-                        title="🚨 Neural Anomaly Terminated",
-                        description=(
-                            f"**Source:** {message.author.mention}\n"
-                            f"**Sector:** {message.channel.mention}\n"
-                            f"**AI Confidence:** `{score:.2%}`\n"
-                            f"**Detection:** {result.get('reason', 'Toxic Content')}\n"
-                            f"**Action:** Message Purged"
-                        ),
-                        color=am.COLORS["DANGER"],
-                        footer="AI Auto-Moderation Protocol"
+
+                    # Post to Nexus log with branded embed
+                    log_embed = E.automod_action(
+                        action="delete",
+                        user=message.author,
+                        reason=result.get("reason", "Toxic content"),
+                        confidence=score,
                     )
-                    await am.log_to_nexus(message.guild, embed)
-                    
-                    # Warn User (briefly)
-                    warn_msg = await message.channel.send(
-                        f"⚠️ {message.author.mention}, your last transmission was flagged as toxic by my neural filters. Purged.",
-                        delete_after=10
+                    await am.log_to_nexus(message.guild, log_embed)
+
+                    # Warn user (auto-deletes after 10s)
+                    await message.channel.send(
+                        f"⚠️ {message.author.mention}, your message was removed by AI moderation.",
+                        delete_after=10,
                     )
                 except discord.Forbidden:
-                    logger.warning(f"Failed to delete toxic message in {message.guild.id} - Missing Permissions")
+                    logger.warning("AutoMod: missing permissions in guild %s", message.guild.id)
                 except Exception as e:
-                    logger.error(f"Error in AutoMod logic: {e}")
+                    logger.error("AutoMod error: %s", e)
+
 
 async def setup(bot):
     await bot.add_cog(AutoModCog(bot))

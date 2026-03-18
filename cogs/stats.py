@@ -1,14 +1,15 @@
 """
-Stats Cog — handles user profiles, leaderboards, and achievements.
-Modularized from the original monolithic bot.py.
+Stats Cog — user profiles, leaderboards, and achievements.
 """
 
 import discord
 from discord.ext import commands
 import logging
 from typing import Optional
+import core.embeds as E
 
 logger = logging.getLogger(__name__)
+
 
 class StatsCog(commands.Cog, name="Stats"):
     """Commands for viewing user statistics, profiles, and achievements."""
@@ -16,108 +17,112 @@ class StatsCog(commands.Cog, name="Stats"):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    def get_user_stats_manager(self):
-        return getattr(self.bot, "user_stats_manager", None)
+    def _usm(self): return getattr(self.bot, "user_stats_manager",  None)
+    def _lm(self):  return getattr(self.bot, "leaderboard_manager", None)
+    def _am(self):  return getattr(self.bot, "achievement_manager", None)
 
-    def get_leaderboard_manager(self):
-        return getattr(self.bot, "leaderboard_manager", None)
-
-    def get_achievement_manager(self):
-        return getattr(self.bot, "achievement_manager", None)
-
-    @commands.command(name="profile", help="Show your profile and stats.")
+    @commands.command(name="profile", help="Show your (or another user's) profile and stats.")
     async def profile_command(self, ctx: commands.Context, user: Optional[discord.User] = None):
-        usm = self.get_user_stats_manager()
+        usm = self._usm()
         if not usm:
-            await ctx.send("❌ Stats system not ready.")
+            await ctx.send(embed=E.error("Unavailable", "Stats system not ready.", ctx))
             return
-        
-        target_user = user or ctx.author
-        if target_user.bot:
-            await ctx.send("❌ Cannot get stats for bot accounts.")
+
+        target = user or ctx.author
+        if target.bot:
+            await ctx.send(embed=E.error("Bots Not Supported", "Cannot fetch stats for bot accounts.", ctx))
             return
-        
+
         try:
-            embed = usm.create_profile_embed(target_user, target_user.id)
+            embed = usm.create_profile_embed(target, target.id)
+            # Ensure consistent footer/timestamp
+            embed.set_footer(text=f"👁  Argus")
+            embed.timestamp = discord.utils.utcnow()
             await ctx.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error showing profile: {e}")
-            await ctx.send("❌ Error fetching profile.")
+            logger.error("Error showing profile: %s", e)
+            await ctx.send(embed=E.error("Error", "Could not fetch profile.", ctx))
 
-    @commands.command(name="leaderboard", aliases=["lb"], help="Show server leaderboard.")
+    @commands.command(name="leaderboard", aliases=["lb"], help="Show the server leaderboard.")
     async def leaderboard_command(self, ctx: commands.Context, metric: str = "xp"):
-        lm = self.get_leaderboard_manager()
+        lm = self._lm()
         if not lm:
-            await ctx.send("❌ Leaderboard system not ready.")
+            await ctx.send(embed=E.error("Unavailable", "Leaderboard system not ready.", ctx))
             return
-        
-        valid_metrics = ['xp', 'level', 'messages', 'voice_time', 'music_plays', 'commands']
-        if metric.lower() not in valid_metrics:
-            await ctx.send(f"❌ Invalid metric. Choose from: {', '.join(valid_metrics)}")
+
+        valid = ["xp", "level", "messages", "voice_time", "music_plays", "commands"]
+        if metric.lower() not in valid:
+            await ctx.send(embed=E.error(
+                "Invalid Metric",
+                f"Choose from: `{'` · `'.join(valid)}`",
+                ctx,
+            ))
             return
-        
+
         try:
             embed = lm.create_leaderboard_embed(metric.lower())
+            embed.set_footer(text=f"👁  Argus  ·  sorted by {metric}")
+            embed.timestamp = discord.utils.utcnow()
             await ctx.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error showing leaderboard: {e}")
-            await ctx.send("❌ Error fetching leaderboard.")
+            logger.error("Error showing leaderboard: %s", e)
+            await ctx.send(embed=E.error("Error", "Could not fetch leaderboard.", ctx))
 
-    @commands.command(name="achievements", aliases=["badges"], help="Show your achievements.")
+    @commands.command(name="achievements", aliases=["badges"], help="Show yours (or another user's) achievements.")
     async def achievements_command(self, ctx: commands.Context, user: Optional[discord.User] = None):
-        am = self.get_achievement_manager()
+        am = self._am()
         if not am:
-            await ctx.send("❌ Achievement system not ready.")
+            await ctx.send(embed=E.error("Unavailable", "Achievement system not ready.", ctx))
             return
-        
-        target_user = user or ctx.author
-        achievements = am.get_user_achievements(target_user.id)
-        
+
+        target       = user or ctx.author
+        achievements = am.get_user_achievements(target.id)
+
         if not achievements:
-            await ctx.send(f"🏅 {target_user.name} has no achievements yet.")
+            await ctx.send(embed=E.info(
+                "🏅 No Achievements Yet",
+                f"**{target.display_name}** hasn't unlocked anything yet. Keep chatting!",
+                ctx,
+            ))
             return
-        
-        embed = discord.Embed(
-            title=f"🏅 {target_user.name}'s Achievements",
-            description=f"Unlocked {len(achievements)} achievements",
-            color=discord.Color.gold(),
-            timestamp=discord.utils.utcnow()
+
+        embed = E.gold(
+            f"🏅 {target.display_name}'s Achievements",
+            f"**{len(achievements)}** achievement{'s' if len(achievements) != 1 else ''} unlocked",
+            ctx,
         )
-        
+        embed.set_thumbnail(url=target.display_avatar.url)
         for ach_key in achievements:
             ach = am.get_achievement(ach_key)
             if ach:
                 embed.add_field(
-                    name=ach.tier.value + " " + ach.name,
+                    name=f"{ach.tier.value}  {ach.name}",
                     value=ach.description,
-                    inline=False
+                    inline=False,
                 )
-        
         await ctx.send(embed=embed)
 
-    @commands.command(name="stats", help="Show overall bot statistics.")
+    @commands.command(name="stats", help="Show overall server statistics.")
     async def stats_command(self, ctx: commands.Context):
-        lm = self.get_leaderboard_manager()
+        lm = self._lm()
         if not lm:
-            await ctx.send("❌ Stats system not ready.")
+            await ctx.send(embed=E.error("Unavailable", "Stats system not ready.", ctx))
             return
-        
+
         try:
-            stats = lm.get_leaderboard_stats()
-            embed = discord.Embed(
-                title="📊 Bot Statistics",
-                color=discord.Color.blue(),
-                timestamp=discord.utils.utcnow()
-            )
-            embed.add_field(name="👥 Users", value=f"{stats['total_users']} total users", inline=True)
-            embed.add_field(name="💬 Messages", value=f"{stats['total_messages']:,} total", inline=True)
-            embed.add_field(name="🎤 Voice Time", value=f"{stats['total_voice_time'] // 3600:,} hours", inline=True)
-            embed.add_field(name="🎵 Songs Played", value=f"{stats['total_songs']:,} total", inline=True)
-            embed.add_field(name="⭐ Average Level", value=f"{stats['avg_level']:.1f}", inline=True)
+            s = lm.get_leaderboard_stats()
+            embed = E.navy("📊 Server Statistics", ctx=ctx)
+            embed.add_field(name="👥 Members",      value=f"`{s['total_users']:,}`",                      inline=True)
+            embed.add_field(name="💬 Messages",     value=f"`{s['total_messages']:,}`",                   inline=True)
+            embed.add_field(name="🎤 Voice",        value=f"`{s['total_voice_time'] // 3600:,}h`",        inline=True)
+            embed.add_field(name="🎵 Songs Played", value=f"`{s['total_songs']:,}`",                      inline=True)
+            embed.add_field(name="⭐ Avg Level",    value=f"`{s['avg_level']:.1f}`",                      inline=True)
+            embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.utils.MISSING)
             await ctx.send(embed=embed)
         except Exception as e:
-            logger.error(f"Error showing stats: {e}")
-            await ctx.send("❌ Error fetching statistics.")
+            logger.error("Error showing stats: %s", e)
+            await ctx.send(embed=E.error("Error", "Could not fetch statistics.", ctx))
+
 
 async def setup(bot):
     await bot.add_cog(StatsCog(bot))

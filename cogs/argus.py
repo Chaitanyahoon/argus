@@ -1,15 +1,16 @@
 """
-Argus Cog — handles bot info, setup status, and evolutionary leveling.
-Modularized from the original monolithic bot.py.
+Argus Cog — bot info, setup status, and evolutionary leveling.
 """
 
 import discord
 from discord.ext import commands
 import logging
 from typing import Optional
+import core.embeds as E
 from config import Config
 
 logger = logging.getLogger(__name__)
+
 
 class ArgusCog(commands.Cog, name="Argus"):
     """Commands for bot status, server setup, and evolutionary leveling."""
@@ -20,32 +21,41 @@ class ArgusCog(commands.Cog, name="Argus"):
     def get_argus_manager(self):
         return getattr(self.bot, "argus_manager", None)
 
-    @commands.command(name="level", help="Check your current evolutionary level.")
+    @commands.command(name="level", help="Check your (or another member's) evolutionary level.")
     async def level_cmd(self, ctx: commands.Context, member: discord.Member = None):
         am = self.get_argus_manager()
         if not am:
-            await ctx.send("❌ Argus systems not initialized.")
+            await ctx.send(embed=E.error("Unavailable", "Argus systems not initialized.", ctx))
             return
-        
-        target = member or ctx.author
+
+        target    = member or ctx.author
         user_data = am.db.get_user(target.id)
+
         if not user_data:
-            await ctx.send(f"ℹ️ I have no data on {target.name} yet.")
+            await ctx.send(embed=E.info(
+                "No Data Yet",
+                f"I have no records for **{target.display_name}** yet — start chatting!",
+                ctx,
+            ))
             return
-        
-        level = user_data.get('level', 1)
-        xp = user_data.get('xp', 0)
-        next_xp = am.get_xp_for_level(level)
-        
-        embed = am.create_argus_embed(
-            title=f"Evolutionary Profile: {target.name}",
-            description=(
-                f"**Level:** {level}\n"
-                f"**XP:** {xp} / {next_xp}\n"
-                f"**Status:** {'Integrated' if level > 5 else 'Subject'}"
-            ),
-            color=am.COLORS["ETHEREAL"]
+
+        level    = user_data.get("level", 1)
+        xp       = user_data.get("xp", 0)
+        next_xp  = am.get_xp_for_level(level)
+        pct      = min(100, round((xp / next_xp) * 100)) if next_xp else 0
+        bar_fill = round(pct / 5)
+        bar      = "█" * bar_fill + "░" * (20 - bar_fill)
+        status   = "Integrated" if level > 5 else "Subject"
+
+        embed = E.base(
+            f"⭐ {target.display_name}",
+            f"`{bar}` **{pct}%**",
+            E.C_GOLD,
+            ctx=ctx,
         )
+        embed.add_field(name="Level",  value=f"`{level}`",            inline=True)
+        embed.add_field(name="XP",     value=f"`{xp:,} / {next_xp:,}`", inline=True)
+        embed.add_field(name="Status", value=status,                   inline=True)
         embed.set_thumbnail(url=target.display_avatar.url)
         await ctx.send(embed=embed)
 
@@ -53,11 +63,12 @@ class ArgusCog(commands.Cog, name="Argus"):
     @commands.has_permissions(administrator=True)
     async def setup_status(self, ctx: commands.Context):
         am = self.get_argus_manager()
-        if not am: return
+        if not am:
+            return
 
         data = am.db.get_guild(ctx.guild.id) or {}
-        
-        def format_status(val, fallback="❌ Not Configured"):
+
+        def _fmt(val, fallback="❌ Not Configured"):
             if val:
                 if isinstance(val, int):
                     ch = ctx.guild.get_channel(val)
@@ -65,18 +76,15 @@ class ArgusCog(commands.Cog, name="Argus"):
                 return f"✅ {val}"
             return fallback
 
-        embed = discord.Embed(title="👁️ Argus System Configuration", color=0x001a4d)
-        embed.description = f"Current configuration for **{ctx.guild.name}**."
-        
-        embed.add_field(name="Prefix", value=format_status(data.get("prefix"), "✅ !"), inline=True)
+        embed = E.navy("👁️ Argus Configuration", f"Settings for **{ctx.guild.name}**", ctx)
+        embed.add_field(name="Prefix",          value=_fmt(data.get("prefix"), "✅ !"), inline=True)
         embed.add_field(name="Awakening Stage", value=f"📡 Stage {data.get('awakening_stage', 1)}", inline=True)
-        embed.add_field(name="Mood Mode", value=f"🎭 {data.get('mood_mode', 'NORMAL')}", inline=True)
-        
-        embed.add_field(name="Nexus Logging", value=format_status(data.get("logging_channel_id")), inline=False)
-        embed.add_field(name="TempVoice Trigger", value=format_status(data.get("temp_voice_trigger_id")), inline=True)
-        embed.add_field(name="TempVoice Category", value=format_status(data.get("temp_voice_category_id")), inline=True)
-        embed.add_field(name="Interface Channel", value=format_status(data.get("temp_voice_interface_id")), inline=False)
-
+        embed.add_field(name="Mood Mode",       value=f"🎭 {data.get('mood_mode', 'NORMAL')}",      inline=True)
+        embed.add_field(name="Nexus Logs",      value=_fmt(data.get("logging_channel_id")),          inline=False)
+        embed.add_field(name="TempVoice Trigger",  value=_fmt(data.get("temp_voice_trigger_id")),  inline=True)
+        embed.add_field(name="TempVoice Category", value=_fmt(data.get("temp_voice_category_id")), inline=True)
+        embed.add_field(name="Interface Channel",  value=_fmt(data.get("temp_voice_interface_id")), inline=False)
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.utils.MISSING)
         await ctx.send(embed=embed)
 
     @commands.command(name="status", help="Show overall bot and session status.")
@@ -84,33 +92,37 @@ class ArgusCog(commands.Cog, name="Argus"):
         am = self.get_argus_manager()
         vm = getattr(self.bot, "voice_manager", None)
         tm = getattr(self.bot, "temp_voice_manager", None)
-        
-        vc_connected = "Connected" if ctx.voice_client else "Not connected"
-        listening_status = "Inactive"
-        live_status = "Disconnected"
-        
+
+        vc_status  = "🟢 Connected"    if ctx.voice_client else "⚫ Not Connected"
+        listen_s   = "⚫ Inactive"
+        live_s     = "⚫ Disconnected"
+
         if vm:
             listener = vm.get_listener(ctx.guild.id)
-            if listener._listening: listening_status = "Active"
-            if listener._live_session and listener._live_session.is_connected: live_status = "Connected"
+            if getattr(listener, "_listening", False):
+                listen_s = "🟢 Active"
+            if getattr(listener, "_live_session", None) and listener._live_session.is_connected:
+                live_s = "🟢 Connected"
 
-        embed = discord.Embed(title="👁️ Argus System Status", color=0x001a4d)
-        embed.add_field(name="Voice Channel", value=vc_connected, inline=True)
-        embed.add_field(name="Listening", value=listening_status, inline=True)
-        embed.add_field(name="Live API", value=live_status, inline=True)
-        
+        embed = E.navy("👁️ Argus System Status", ctx=ctx)
+        embed.add_field(name="🔊 Voice Channel", value=vc_status,  inline=True)
+        embed.add_field(name="🎙️ Listening",     value=listen_s,   inline=True)
+        embed.add_field(name="⚡ Gemini Live",   value=live_s,     inline=True)
+
         if am:
-            state = am.db.get_guild(ctx.guild.id)
-            stage = state.get('awakening_stage', 1)
-            mood = state.get('mood_mode', 'NORMAL')
-            embed.add_field(name="Awakening", value=f"Stage {stage} ({mood})", inline=False)
-        
-        tv_status = "Enabled" if (tm and tm.trigger_channel_id) else "Disabled"
-        embed.add_field(name="TempVoice", value=tv_status, inline=True)
-        embed.set_footer(text=f"Argus V2 • Voice: {Config.GEMINI_VOICE}")
+            state = am.db.get_guild(ctx.guild.id) or {}
+            embed.add_field(
+                name="🌀 Awakening",
+                value=f"Stage {state.get('awakening_stage', 1)}  ·  {state.get('mood_mode', 'NORMAL')}",
+                inline=False,
+            )
+
+        tv = "✅ Enabled" if (tm and tm.trigger_channel_id) else "❌ Disabled"
+        embed.add_field(name="🎙️ TempVoice", value=tv, inline=True)
+        embed.add_field(name="🤖 Voice Model", value=f"`{Config.GEMINI_VOICE}`", inline=True)
         await ctx.send(embed=embed)
 
-    # --- Event Listeners ---
+    # ── Event listeners ────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         am = self.get_argus_manager()
@@ -140,6 +152,7 @@ class ArgusCog(commands.Cog, name="Argus"):
         am = self.get_argus_manager()
         if am:
             await am.on_member_remove(member)
+
 
 async def setup(bot):
     await bot.add_cog(ArgusCog(bot))
