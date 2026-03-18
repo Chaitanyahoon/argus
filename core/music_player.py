@@ -60,6 +60,24 @@ class Track:
 
 
 # ── Spotify helpers ──────────────────────────────────────────────────────────
+# Initialize Spotify client once (lazy-loaded singleton)
+_SPOTIFY_CLIENT = None
+
+
+def _get_spotify_client():
+    """Get or initialize Spotify client (singleton pattern)."""
+    global _SPOTIFY_CLIENT
+    if _SPOTIFY_CLIENT is None:
+        try:
+            from spotify_scraper import SpotifyClient
+            _SPOTIFY_CLIENT = SpotifyClient()
+        except ImportError:
+            logger.error("spotify_scraper is not installed; cannot resolve Spotify URLs")
+            return None
+        except Exception as e:
+            logger.warning("SpotifyClient initialization failed: %s", e)
+            return None
+    return _SPOTIFY_CLIENT
 
 def _spotify_search_queries(url: str) -> list[str] | None:
     """
@@ -74,16 +92,8 @@ def _spotify_search_queries(url: str) -> list[str] | None:
     if not (track_m or album_m or playlist_m):
         return None
 
-    try:
-        from spotify_scraper import SpotifyClient
-    except ImportError:
-        logger.error("spotifyscraper is not installed; cannot resolve Spotify URLs")
-        return None
-
-    try:
-        client = SpotifyClient()
-    except Exception as e:
-        logger.warning("SpotifyClient init failed: %s", e)
+    client = _get_spotify_client()
+    if not client:
         return None
 
     queries: list[str] = []

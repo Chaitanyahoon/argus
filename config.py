@@ -36,6 +36,12 @@ class Config:
 
     # Whisper model for speech-to-text
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base.en")
+    WHISPER_DEVICE: str = os.getenv("WHISPER_DEVICE", "cpu")  # "cpu" or "cuda"
+    WHISPER_COMPUTE_TYPE: str = os.getenv("WHISPER_COMPUTE_TYPE", "int8")  # "int8", "float16", "float32"
+    
+    # Whisper VAD (Voice Activity Detection) parameters
+    WHISPER_VAD_MIN_SILENCE_MS: int = int(os.getenv("WHISPER_VAD_MIN_SILENCE_MS", "300"))
+    WHISPER_VAD_SPEECH_PAD_MS: int = int(os.getenv("WHISPER_VAD_SPEECH_PAD_MS", "200"))
 
     GEMINI_VOICE: str = os.getenv("GEMINI_VOICE", "Aoede")
 

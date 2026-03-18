@@ -11,7 +11,7 @@ Handles:
 
 import asyncio
 import logging
-from typing import Callable, Awaitable, Optional
+from typing import Callable, Awaitable, Optional, cast
 
 from google import genai
 from google.genai import types
@@ -254,6 +254,9 @@ class LiveSession:
         self._session = None
         self._receive_task: Optional[asyncio.Task] = None
         self._connected = False
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        self._reconnect_delay = 1.0
 
         # Callbacks
         self._on_audio = on_audio
@@ -294,11 +297,13 @@ class LiveSession:
             model=MODEL,
             config=config,
         )
-        try:
-            self._session = await asyncio.wait_for(self._session_ctx.__aenter__(), timeout=30.0)
-        except asyncio.TimeoutError:
-            logger.error("Timed out connecting to Gemini Live API (30s limit reached).")
-            raise
+        ctx = self._session_ctx
+        if ctx is not None:
+            try:
+                self._session = await asyncio.wait_for(ctx.__aenter__(), timeout=30.0)
+            except asyncio.TimeoutError:
+                logger.error("Timed out connecting to Gemini Live API (30s limit reached).")
+                raise
         
         self._connected = True
 
@@ -311,17 +316,20 @@ class LiveSession:
         """Close the Live API session."""
         self._connected = False
 
-        if self._receive_task:
-            self._receive_task.cancel()
+        receive_task = self._receive_task
+        if receive_task is not None:
+            receive_task.cancel()
             try:
-                await self._receive_task
-            except asyncio.CancelledError:
+                await receive_task
+            except (asyncio.CancelledError, Exception):
                 pass
             self._receive_task = None
 
-        if self._session_ctx and self._session:
+        ctx = self._session_ctx
+        session = self._session
+        if ctx is not None and session is not None:
             try:
-                await self._session_ctx.__aexit__(None, None, None)
+                await ctx.__aexit__(None, None, None)
             except Exception as e:
                 logger.debug("Error closing session: %s", e)
             self._session = None
@@ -336,11 +344,15 @@ class LiveSession:
         Args:
             pcm_16k_mono: 16 kHz mono 16-bit PCM audio bytes (already resampled).
         """
-        if not self._connected or not self._session:
+        if not self._connected or self._session is None:
             return
-
+        
+        # Assertion to satisfy type checker
+        session = self._session
+        assert session is not None
+        
         try:
-            await self._session.send(
+            await session.send(
                 input=types.LiveClientRealtimeInput(
                     media_chunks=[
                         types.Blob(
@@ -360,7 +372,11 @@ class LiveSession:
         try:
             while self._connected and self._session:
                 try:
-                    async for msg in self._session.receive():
+                    session = self._session
+                    if session is None:
+                        break
+                    
+                    async for msg in session.receive():
                         if not self._connected:
                             break
                         await self._handle_message(msg)
@@ -386,25 +402,32 @@ class LiveSession:
             sc = msg.server_content
 
             # Extract audio from model_turn parts
-            if sc.model_turn and sc.model_turn.parts:
-                for part in sc.model_turn.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data and part.inline_data.data:
-                        audio_bytes = part.inline_data.data
+            model_turn = getattr(sc, 'model_turn', None)
+            if model_turn and getattr(model_turn, 'parts', None):
+                for part in model_turn.parts:
+                    inline_data = getattr(part, 'inline_data', None)
+                    audio_data = getattr(inline_data, 'data', None) if inline_data else None
+                    if audio_data:
+                        audio_bytes = cast(bytes, audio_data)
                         logger.info(f"📡 AI Response: Gemini sent {len(audio_bytes)} bytes of audio data")
                         discord_audio = gemini_to_discord(audio_bytes)
-                        if discord_audio:
-                            self._on_audio(discord_audio)
-                    elif hasattr(part, 'text') and part.text:
-                        logger.info("Gemini text: %s", part.text)
+                        on_audio = self._on_audio
+                        if discord_audio is not None and callable(on_audio):
+                            on_audio(discord_audio)
+                    else:
+                        text = getattr(part, 'text', None)
+                        if text:
+                            logger.info("Gemini text: %s", text)
 
-            if sc.interrupted:
+            on_interrupted = self._on_interrupted
+            if sc.interrupted and callable(on_interrupted):
                 logger.debug("Model response interrupted by user speech.")
-                if self._on_interrupted:
-                    self._on_interrupted()
+                on_interrupted()
 
-            if sc.turn_complete:
+            on_turn_complete = self._on_turn_complete
+            if sc.turn_complete and callable(on_turn_complete):
                 logger.debug("Model turn complete.")
-                await self._on_turn_complete()
+                await on_turn_complete()
 
         # Handle tool calls (function calling for moderation)
         if msg.tool_call is not None:
@@ -424,9 +447,10 @@ class LiveSession:
             logger.info("Tool call: %s(%s)", fn_name, fn_args)
 
             result = "Function not handled."
-            if self._on_tool_call:
+            on_tool = self._on_tool_call
+            if on_tool is not None:
                 try:
-                    result = await self._on_tool_call(fn_name, fn_args)
+                    result = await on_tool(fn_name, fn_args)
                 except Exception as e:
                     logger.error("Tool call error for %s: %s", fn_name, e)
                     result = f"Error executing {fn_name}: {e}"
@@ -440,11 +464,16 @@ class LiveSession:
             )
 
         # Send tool responses back to the session
-        if self._session and self._connected:
+        session = self._session
+        if session is not None and self._connected:
             try:
-                await self._session.send_tool_response(
-                    function_responses=function_responses
-                )
+                # Ensure session has send_tool_response attribute (handling potential API version issues)
+                if hasattr(session, "send_tool_response"):
+                    await session.send_tool_response(
+                        function_responses=function_responses
+                    )
+                else:
+                    logger.warning("Session does not have send_tool_response - check API version.")
             except Exception as e:
                 logger.error("Error sending tool response: %s", e)
 

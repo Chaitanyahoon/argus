@@ -17,19 +17,46 @@ logger = logging.getLogger(__name__)
 class Transcriber:
     """Handles speech-to-text using faster-whisper (multilingual)."""
 
-    model: WhisperModel
+    _model: Optional[WhisperModel] = None  # Singleton pattern for model caching
 
-    def __init__(self) -> None:
-        logger.info(
-            "Loading Whisper model '%s' (this may take a moment on first run)...",
-            Config.WHISPER_MODEL,
-        )
-        self.model = WhisperModel(
-            Config.WHISPER_MODEL,
-            device="cpu",
-            compute_type="int8",
-        )
-        logger.info("Whisper model loaded successfully.")
+    @classmethod
+    def get_model(cls) -> WhisperModel:
+        """Get or initialize the Whisper model (lazy-loaded singleton)."""
+        if cls._model is None:
+            logger.info(
+                f"Loading Whisper model '{Config.WHISPER_MODEL}' on device '{Config.WHISPER_DEVICE}' "
+                f"with compute type '{Config.WHISPER_COMPUTE_TYPE}' (this may take a moment on first run)..."
+            )
+            cls._model = WhisperModel(
+                Config.WHISPER_MODEL,
+                device=Config.WHISPER_DEVICE,
+                compute_type=Config.WHISPER_COMPUTE_TYPE,
+            )
+            logger.debug("Whisper model loaded successfully.")
+        return cls._model
+
+    @classmethod
+    def reset_model(cls) -> None:
+        """Clear cached model from memory (useful for testing/restart)."""
+        if cls._model is not None:
+            del cls._model
+            cls._model = None
+            logger.debug("Whisper model reset.")
+
+    @classmethod
+    def is_model_loaded(cls) -> bool:
+        """Check if the Whisper model is already loaded in memory."""
+        return cls._model is not None
+
+    @staticmethod
+    def _get_vad_parameters() -> dict:
+        """Get Voice Activity Detection parameters from configuration."""
+        return {
+            "min_silence_duration_ms": Config.WHISPER_VAD_MIN_SILENCE_MS,
+            "speech_pad_ms": Config.WHISPER_VAD_SPEECH_PAD_MS,
+        }
+
+
 
     def transcribe_wav(self, wav_bytes: bytes) -> Optional[str]:
         """
@@ -41,36 +68,42 @@ class Transcriber:
         Returns:
             Transcribed text string, or None if no speech detected.
         """
+        model = self.get_model()
+        
         try:
-            audio_file = io.BytesIO(wav_bytes)
-
-            # language=None enables auto language detection
-            segments, info = self.model.transcribe(
-                audio_file,
-                language=None,
-                vad_filter=True,
-                vad_parameters=dict(
-                    min_silence_duration_ms=300,
-                    speech_pad_ms=200,
-                ),
-            )
-
-            text_parts: list[str] = []
-            for segment in segments:
-                text_parts.append(segment.text.strip())
-
-            full_text: str = " ".join(text_parts).strip()
-
-            if full_text:
-                logger.info(
-                    "Transcribed [%s]: '%s' (%.1fs audio)",
-                    info.language or "unknown",
-                    full_text,
-                    info.duration,
+            # Use context manager for explicit resource handling
+            with io.BytesIO(wav_bytes) as audio_file:
+                # language=None enables auto language detection
+                segments, info = model.transcribe(
+                    audio_file,
+                    language=None,
+                    vad_filter=True,
+                    vad_parameters=self._get_vad_parameters(),
                 )
 
-            return full_text if full_text else None
+                text_parts: list[str] = []
+                for segment in segments:
+                    text_parts.append(segment.text.strip())
 
+                full_text: str = " ".join(text_parts).strip()
+
+            # Early return for empty text
+            if not full_text:
+                logger.debug(f"No speech detected in audio (duration: {info.duration:.1f}s)")
+                return None
+
+            language = info.language or "unknown"
+            logger.info(
+                f"Transcribed [{language}]: '{full_text}' ({info.duration:.1f}s audio)"
+            )
+            return full_text
+
+        except ValueError as e:
+            logger.error(f"Invalid audio data provided to transcriber: {e}")
+            return None
+        except RuntimeError as e:
+            logger.error(f"Transcription inference failed: {e}")
+            return None
         except Exception as e:
-            logger.error("Transcription error: %s", e)
+            logger.error(f"Unexpected transcription error: {e}")
             return None

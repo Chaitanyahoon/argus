@@ -2,9 +2,10 @@
 Audio utilities — resampling between Discord and Gemini formats,
 plus a custom AudioSource for streaming PCM playback.
 
-Discord audio: 48 kHz, stereo, 16-bit signed LE PCM
-Gemini input:  16 kHz, mono,   16-bit signed LE PCM
-Gemini output: 24 kHz, mono,   16-bit signed LE PCM
+Audio format specifications:
+  Discord audio: 48 kHz, stereo, 16-bit signed LE PCM
+  Gemini input:  16 kHz, mono,   16-bit signed LE PCM
+  Gemini output: 24 kHz, mono,   16-bit signed LE PCM
 """
 
 import audioop
@@ -12,6 +13,7 @@ import asyncio
 import logging
 import struct
 from collections import deque
+from typing import Tuple, Optional
 
 import discord
 

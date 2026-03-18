@@ -6,7 +6,11 @@ import asyncio
 from datetime import datetime
 import discord
 from discord.ext import commands
+from google import genai
+try: from config import Config
+except: Config = None
 from .visual_generator import VisualGenerator
+from .database import SQLiteArgusDb
 
 logger = logging.getLogger(__name__)
 
@@ -56,75 +60,73 @@ class ArgusDb:
         self.data_dir = data_dir
         self.users_file = os.path.join(data_dir, "users.json")
         self.guilds_file = os.path.join(data_dir, "guilds.json")
+        self.db_path = os.path.join(data_dir, "argus.db")
         
-        if not os.path.exists(data_dir):
-            os.makedirs(data_dir)
-            
-        self._init_file(self.users_file, [])
-        self._init_file(self.guilds_file, [])
+        self.sqlite = SQLiteArgusDb(self.db_path)
+        
+        # Check for migration
+        if os.path.exists(self.users_file) or os.path.exists(self.guilds_file):
+            self.migrate_from_json()
 
-    def _init_file(self, path, default):
-        if not os.path.exists(path):
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(default, f, indent=4)
+    def migrate_from_json(self):
+        """One-time migration from JSON to SQLite."""
+        logger.info("⚡ Starting one-time JSON to SQLite migration...")
+        
+        # Migrate Users
+        if os.path.exists(self.users_file):
+            try:
+                with open(self.users_file, 'r', encoding='utf-8') as f:
+                    users = json.load(f)
+                for u in users:
+                    uid = u.pop('user_id', None)
+                    if uid:
+                        self.sqlite.update_user(uid, **u)
+                os.rename(self.users_file, self.users_file + ".bak")
+                logger.info(f"✅ Migrated {len(users)} users. Original file renamed to .bak")
+            except Exception as e:
+                logger.error(f"Failed to migrate users: {e}")
 
-    def _read(self, path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error reading {path}: {e}")
-            return []
-
-    def _write(self, path, data):
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4)
-        except Exception as e:
-            logger.error(f"Error writing {path}: {e}")
+        # Migrate Guilds
+        if os.path.exists(self.guilds_file):
+            try:
+                with open(self.guilds_file, 'r', encoding='utf-8') as f:
+                    guilds = json.load(f)
+                for g in guilds:
+                    gid = g.pop('guild_id', None)
+                    if gid:
+                        self.sqlite.update_guild(gid, **g)
+                os.rename(self.guilds_file, self.guilds_file + ".bak")
+                logger.info(f"✅ Migrated {len(guilds)} guilds. Original file renamed to .bak")
+            except Exception as e:
+                logger.error(f"Failed to migrate guilds: {e}")
 
     # User Methods
-    def get_user(self, user_id: int):
-        users = self._read(self.users_file)
-        return next((u for u in users if u['user_id'] == user_id), None)
+    def get_user(self, user_id: int) -> dict | None:
+        return self.sqlite.get_user(user_id)
 
-    def set_user(self, user_id: int, **kwargs):
-        users = self._read(self.users_file)
-        user = next((u for u in users if u['user_id'] == user_id), None)
-        if user:
-            user.update(kwargs)
-        else:
-            user = {"user_id": user_id, "xp": 0, "level": 1, "last_seen": datetime.utcnow().isoformat()}
-            user.update(kwargs)
-            users.append(user)
-        self._write(self.users_file, users)
-        return user
+    def set_user(self, user_id: int, **kwargs) -> dict:
+        self.sqlite.update_user(user_id, **kwargs)
+        return self.sqlite.get_user(user_id) or {}
 
     # Guild Methods
-    def get_guild(self, guild_id: int):
-        guilds = self._read(self.guilds_file)
-        return next((g for g in guilds if g['guild_id'] == guild_id), None)
+    def get_guild(self, guild_id: int) -> dict | None:
+        return self.sqlite.get_guild(guild_id)
 
-    def set_guild(self, guild_id: int, **kwargs):
-        guilds = self._read(self.guilds_file)
-        guild = next((g for g in guilds if g['guild_id'] == guild_id), None)
-        if guild:
-            guild.update(kwargs)
-        else:
-            guild = {
-                "guild_id": guild_id, 
-                "awakening_stage": 1, 
-                "mood_mode": "NORMAL", 
-                "logging_channel_id": None, 
-                "prefix": "!",
-                "temp_voice_trigger_id": None,
-                "temp_voice_category_id": None,
-                "temp_voice_interface_id": None
-            }
-            guild.update(kwargs)
-            guilds.append(guild)
-        self._write(self.guilds_file, guilds)
-        return guild
+    def set_guild(self, guild_id: int, **kwargs) -> dict:
+        self.sqlite.update_guild(guild_id, **kwargs)
+        return self.sqlite.get_guild(guild_id) or {}
+    
+    def get_top_users(self, metric: str = "xp", limit: int = 10) -> list:
+        return self.sqlite.get_top_users(metric, limit)
+    
+    # Legacy shim for older managers
+    def _read(self, path):
+        """Shim for managers that still expect JSON-like reads."""
+        if "users.json" in path:
+            return self.sqlite.get_all_users()
+        elif "guilds.json" in path:
+            return self.sqlite.get_all_guilds()
+        return []
 
 # --- Argus Manager ---
 class ArgusManager:
@@ -143,13 +145,19 @@ class ArgusManager:
     def __init__(self, bot):
         self.bot = bot
         self.db = ArgusDb()
-        self.cooldowns = {} # (guild_id, user_id) -> timestamp
-        self.spam_counts = {} # (guild_id, user_id) -> int
+        self.cooldowns = {}  # type: dict[tuple, float]  # (guild_id, user_id) -> timestamp
+        self.spam_counts = {}  # type: dict[tuple, int]  # (guild_id, user_id) -> int
+        
+        # Initialize Gemini for Auto-Mod
+        self.client = None
+        if Config and hasattr(Config, "GEMINI_API_KEY"):
+            self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
 
-    def get_xp_for_level(self, level):
+    def get_xp_for_level(self, level: int) -> int:
+        """Calculate XP threshold for a given level."""
         return level * level * 100
 
-    def create_argus_embed(self, title=None, description=None, color=None, footer=None):
+    def create_argus_embed(self, title: str | None = None, description: str | None = None, color: int | None = None, footer: str | None = None) -> discord.Embed:
         embed = discord.Embed(
             title=title,
             description=description,
@@ -174,6 +182,7 @@ class ArgusManager:
         if key in self.cooldowns and now - self.cooldowns[key] < self.COOLDOWN_SECONDS:
             self.spam_counts[key] = self.spam_counts.get(key, 0) + 1
             if self.spam_counts[key] == 3:
+                logger.warning(f"Rate limit triggered for {message.author.name} ({user_id}) in guild {guild_id}")
                 embed = self.create_argus_embed(
                     title="⚠️ Observation: Redundancy Detected",
                     description=f"**{message.author.name}**, your frequency is excessive. I've logged your repetitive patterns. Slow down.",
@@ -187,6 +196,7 @@ class ArgusManager:
         
         user = self.db.get_user(user_id)
         if not user:
+            logger.info(f"New user registered: {message.author.name} ({user_id}) in guild {guild_id}")
             self.db.set_user(user_id, username=message.author.name, xp=self.XP_PER_MESSAGE, level=1)
         else:
             new_xp = user.get('xp', 0) + self.XP_PER_MESSAGE
@@ -196,6 +206,7 @@ class ArgusManager:
             if new_xp >= threshold:
                 new_level += 1
                 new_xp -= threshold
+                logger.info(f"Level up: {message.author.name} ({user_id}) -> Level {new_level}")
                 
                 embed = self.create_argus_embed(
                     title="🌱 Evolutionary Leap",
@@ -205,13 +216,18 @@ class ArgusManager:
                 await message.channel.send(embed=embed)
                 
             self.db.set_user(user_id, xp=new_xp, level=new_level, last_seen=datetime.utcnow().isoformat())
+            logger.debug(f"XP updated: {message.author.name} ({user_id}) now has {new_xp} XP")
 
     async def log_to_nexus(self, guild, embed):
         state = self.db.get_guild(guild.id)
-        if not state or not state.get('logging_channel_id'):
+        if not state:
             return
             
-        channel = guild.get_channel(state['logging_channel_id'])
+        chan_id = state.get('logging_channel_id')
+        if chan_id is None:
+            return
+            
+        channel = guild.get_channel(chan_id)
         if channel:
             try:
                 await channel.send(embed=embed)
@@ -222,6 +238,8 @@ class ArgusManager:
     async def on_message_delete(self, message):
         if not message.guild or message.author.bot:
             return
+        
+        logger.info(f"Message deleted: {message.author.name} ({message.author.id}) in #{message.channel.name} | Content: {message.content[:50]}...")
         
         embed = self.create_argus_embed(
             title="🗑️ Data Terminated",
@@ -234,6 +252,9 @@ class ArgusManager:
     async def on_message_edit(self, before, after):
         if not before.guild or before.author.bot or before.content == after.content:
             return
+        
+        logger.info(f"Message edited: {before.author.name} ({before.author.id}) in #{before.channel.name}")
+        logger.debug(f"Before: {before.content[:50]}... | After: {after.content[:50]}...")
             
         embed = self.create_argus_embed(
             title="📝 Data Modified",
@@ -244,6 +265,8 @@ class ArgusManager:
         await self.log_to_nexus(before.guild, embed)
 
     async def on_member_join(self, member):
+        logger.info(f"Member joined: {member.name} ({member.id}) in guild {member.guild.id}")
+        
         embed = self.create_argus_embed(
             title="👤 Subject Integrated",
             description=f"**Tag:** {member}\n**ID:** `{member.id}`\nInterpreting neural patterns...",
@@ -251,6 +274,9 @@ class ArgusManager:
             footer="Personnel Entry"
         )
         await self.log_to_nexus(member.guild, embed)
+
+    async def on_member_remove(self, member):
+        logger.info(f"Member left: {member.name} ({member.id}) from guild {member.guild.id}")
 
     # --- Random Events Logic ---
     async def start_random_events(self):
@@ -359,3 +385,40 @@ class ArgusManager:
                 color=self.COLORS["VOID"]
             )
             await channel.send(embed=embed)
+
+    async def analyze_content(self, text: str) -> dict:
+        """Analyze message content for toxicity and intent using Gemini."""
+        if not self.client or not text.strip():
+            return {"toxic": False, "score": 0.0, "reason": "AI offline"}
+            
+        prompt = f"""
+        Analyze the following Discord message for toxicity, harassment, hate speech, or severe spam.
+        Return ONLY a JSON object with:
+        - "score": (float 0 to 1, where 1 is extremely toxic)
+        - "toxic": (boolean, true if score > 0.7)
+        - "reason": (string, brief explanation of the violation or 'None')
+        
+        Message: "{text}"
+        """
+        
+        try:
+            # Use a thread for the blocking SDK call
+            def generate():
+                return self.client.models.generate_content(
+                    model='gemini-2.0-flash', 
+                    contents=prompt
+                )
+            
+            response = await asyncio.to_thread(generate)
+            raw_text = response.text.strip()
+            # Clean up potential markdown code blocks
+            if "```json" in raw_text:
+                raw_text = raw_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw_text:
+                raw_text = raw_text.split("```")[1].split("```")[0].strip()
+                
+            data = json.loads(raw_text)
+            return data
+        except Exception as e:
+            logger.error(f"Gemini AutoMod Error: {e}")
+            return {"toxic": False, "score": 0.0, "reason": f"Analysis failed: {str(e)}"}

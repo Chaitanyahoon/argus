@@ -1,143 +1,204 @@
-# 🎙️ Voice-Controlled Discord Moderation Bot
+<div align="center">
 
-A Discord bot that listens to your voice in a voice channel and executes moderation commands — **kick, ban, mute, unmute, create/delete voice channels** — all hands-free using speech recognition.
+<img src="https://readme-typing-svg.herokuapp.com?font=Inter&weight=800&size=40&pause=1000&color=0066FF&center=true&vCenter=true&width=600&height=80&lines=👁+ARGUS;AI-Powered+Discord+Bot" alt="Argus" />
 
-## How It Works
+<br/>
 
-1. Bot joins your voice channel
-2. You say the **wake word** (default: `"hey bot"`) followed by a command
-3. Your speech is transcribed locally using **OpenAI Whisper** (via `faster-whisper`)
-4. The bot parses the command and executes it
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Discord.py](https://img.shields.io/badge/discord.py-2.3+-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordpy.readthedocs.io)
+[![Gemini AI](https://img.shields.io/badge/Gemini_2.0_Flash-AI_Core-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+[![License](https://img.shields.io/badge/License-MIT-00d4ff?style=for-the-badge)](LICENSE)
 
-**Example**: *"Hey bot, kick John"* → kicks the user named John from the server.
+<br/>
 
-## Supported Voice Commands
+> **Argus** is an AI-powered Discord bot with real-time voice conversation, AI moderation,  
+> music playback, server analytics, and a web dashboard — all in one.
 
-| Say this | Action |
-|---|---|
-| `"hey bot, kick [name]"` | Kicks a member |
-| `"hey bot, ban [name]"` | Bans a member |
-| `"hey bot, mute [name]"` | Server-mutes a member |
-| `"hey bot, unmute [name]"` | Unmutes a member |
-| `"hey bot, create channel [name]"` | Creates a new voice channel |
-| `"hey bot, delete channel [name]"` | Deletes a voice channel |
+<br/>
 
-> You can also say natural variants like *"remove"* instead of *"kick"*, or *"create a vc"* instead of *"create channel"*.
+**Built & maintained by [Chaitanyahoon](https://github.com/Chaitanyahoon)**
 
-## Setup
+<br/>
 
-### 1. Prerequisites
+---
 
-```bash
-# macOS
-brew install ffmpeg opus
+</div>
 
-# Python 3.11+
-python3 --version
-```
+## ✨ Features
 
-### 2. Create the Discord Bot
+| Category | Feature | Status |
+|----------|---------|--------|
+| 🧠 **AI Voice** | Real-time bidirectional voice chat via Gemini 2.0 Flash Live API | ✅ Live |
+| 🛡️ **Auto-Mod** | AI toxicity & spam detection with configurable thresholds | ✅ Live |
+| 🎵 **Music** | YouTube & Spotify playback with queue, skip, volume | ✅ Live |
+| 🏆 **Leveling** | XP, level-up system, leaderboard, achievements | ✅ Live |
+| 📊 **Dashboard** | Premium web UI for server stats & admin settings | ✅ Live |
+| 🔊 **Temp Voice** | Auto-create/delete temporary voice channels | ✅ Live |
+| 🔐 **Permissions** | Role-based command access control | ✅ Live |
+| 📈 **Analytics** | Server health, user stats, voice session tracking | ✅ Live |
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a **New Application** → go to **Bot** tab
-3. Enable these **Privileged Gateway Intents**:
-   - ✅ Message Content Intent
-   - ✅ Server Members Intent
-   - ✅ Presence Intent
-4. Copy the **Bot Token**
-5. Go to **OAuth2 → URL Generator**:
-   - Scopes: `bot`
-   - Permissions: `Administrator` (or individually: Kick Members, Ban Members, Manage Channels, Connect, Speak)
-6. Use the generated URL to invite the bot to your server
+---
 
-### 3. Install & Configure
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python **3.11+**
+- [FFmpeg](https://ffmpeg.org/download.html) installed and on `PATH`
+- A [Discord Bot Token](https://discord.com/developers/applications)
+- A [Gemini API Key](https://aistudio.google.com/app/apikey)
+
+### 1 — Clone & Install
 
 ```bash
-cd discord_ai_bot
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
+git clone https://github.com/Chaitanyahoon/argus.git
+cd argus
 pip install -r requirements.txt
-# Uses discord.py with voice + discord-ext-voice-recv for two-way voice (hear + speak).
-# discord.py has DAVE support in core; no patch required.
-
-# Configure
-cp .env.example .env
-# Edit .env with your bot token and admin user IDs
 ```
 
-To find your Discord User ID: Enable Developer Mode in Discord settings → right-click your name → Copy User ID.
+### 2 — Configure `.env`
 
-### 4. Run
+```env
+DISCORD_TOKEN=your_discord_bot_token
+GEMINI_API_KEY=your_gemini_api_key
+ADMIN_USER_IDS=your_discord_user_id
+COMMAND_PREFIX=!
+GEMINI_VOICE=Aoede
+```
+
+### 3 — Run
 
 ```bash
 python bot.py
 ```
 
-## Text Commands
+---
 
+## 🗂️ Project Structure
+
+```
+argus/
+├── bot.py                  ← Entry point & event lifecycle
+├── config.py               ← Environment & settings loader
+├── logger.py               ← Structured logging
+├── requirements.txt
+├── Dockerfile
+│
+├── cogs/                   ← Discord command modules
+│   ├── argus.py            ← AI voice commands (!join, !listen, !stop)
+│   ├── automod.py          ← AI moderation (!automod toggle/threshold)
+│   ├── music.py            ← Music commands (!play, !skip, !queue)
+│   ├── stats.py            ← XP, leaderboard, achievements
+│   ├── temp_voice.py       ← Temporary voice channels
+│   ├── voice.py            ← Voice utilities
+│   ├── permissions.py      ← Permission management
+│   └── admin.py            ← Admin commands
+│
+├── core/                   ← Backend systems
+│   ├── argus_systems.py    ← ArgusManager, AI analysis
+│   ├── database.py         ← SQLite data layer
+│   ├── live_session.py     ← Gemini Live API session
+│   ├── music_player.py     ← MusicPlayer / MusicManager
+│   ├── leaderboard.py      ← XP & ranking logic
+│   ├── achievements.py     ← Achievement engine
+│   └── ...                 ← 20 more modules
+│
+├── dashboard/              ← Web admin dashboard
+│   ├── index.html          ← Overview
+│   ├── leaderboard.html    ← Rankings
+│   ├── automod.html        ← AI moderation settings
+│   ├── css/style.css       ← Shared design system
+│   └── js/dashboard.js     ← Data & interactivity
+│
+└── data/
+    └── argus.db            ← SQLite database
+```
+
+---
+
+## 🎮 Commands
+
+### 🎙️ Voice & AI
 | Command | Description |
-|---|---|
-| `!join` | Bot joins your voice channel |
-| `!leave` | Bot leaves the voice channel |
-| `!listen` | Start listening for voice commands |
-| `!stop` | Stop listening |
-| `!status` | Show bot status |
+|---------|-------------|
+| `!join` | Join your voice channel |
+| `!listen` | Start AI voice session (Gemini Live) |
+| `!stop` | End AI session |
+| `!leave` | Disconnect from voice |
 
-## Configuration (.env)
+### 🎵 Music
+| Command | Description |
+|---------|-------------|
+| `!play <query>` | Play from YouTube or Spotify |
+| `!skip` | Skip current track |
+| `!stop` | Stop & clear queue |
+| `!queue` | Show music queue |
+| `!np` | Show currently playing |
 
-| Variable | Description | Default |
-|---|---|---|
-| `DISCORD_TOKEN` | Your bot token | *required* |
-| `ADMIN_USER_IDS` | Comma-separated user IDs allowed to use voice commands | *required* |
-| `WAKE_WORD` | Phrase to trigger a command | `hey bot` |
-| `WHISPER_MODEL` | Whisper model size (`tiny.en`, `base.en`, `small.en`, etc.) | `base.en` |
-| `COMMAND_PREFIX` | Prefix for text commands | `!` |
+### 🛡️ Auto-Moderation
+| Command | Description |
+|---------|-------------|
+| `!automod toggle` | Enable/disable AI moderation |
+| `!automod threshold <0.1–1.0>` | Set toxicity sensitivity |
 
-## Project Structure
+### 📊 Stats & Levels
+| Command | Description |
+|---------|-------------|
+| `!rank` | View your XP & level |
+| `!leaderboard` | Top members |
+| `!achievements` | Your unlocked achievements |
 
-├── bot.py              # Main entry point & text commands
-├── config.py           # Configuration loader
-├── core/               # System logic package
-│   ├── argus_systems.py  # Sentient AI logic
-│   ├── voice_listener.py # Voice pipeline
-│   ├── live_session.py   # Gemini Live manager
-│   ├── temp_voice.py     # Channel management
-│   ├── music_player.py   # Audio playback
-│   └── audio_utils.py    # Audio processing
-├── data/               # Persistent JSON databases
-├── requirements.txt    # Python dependencies
-└── .env.example        # Configuration template
+---
 
-## Security
+## 🌐 Web Dashboard
 
-- Only users listed in `ADMIN_USER_IDS` can trigger voice commands
-- All executed commands are logged in the text channel with rich embeds
-- Speech recognition runs **100% locally** (or via Gemini Live API) — no audio leaves your machine except to Google's API.
+Open `dashboard/index.html` directly in your browser — no server required.
 
-## ☁️ Deployment (Recommended for Low Latency)
+| Page | Description |
+|------|-------------|
+| **Overview** | Live stat cards, activity feed, server health |
+| **Leaderboard** | Gold/silver/bronze podium, ranked table, personal stats |
+| **Auto-Mod** | AI settings, sensitivity slider, action log |
 
-For the best voice response speed, deploy this bot to a cloud server (VPS) close to your Discord voice region.
+---
 
-### Docker (Simplest)
+## 🤖 AI Architecture
 
-1.  **Build the image:**
-    ```bash
-    docker build -t discord-gemini-bot .
-    ```
+```
+User Voice Input
+      │
+      ▼
+discord-ext-voice-recv  ──►  faster-whisper (STT)
+                                    │
+                                    ▼
+                          Gemini 2.0 Flash (Live API)
+                           - Conversation context
+                           - Content moderation
+                           - Intent detection
+                                    │
+                                    ▼
+                     Text Response + Voice Output (TTS)
+```
 
-2.  **Run the container:**
-    ```bash
-    docker run -d \
-      --env-file .env \
-      --restart unless-stopped \
-      discord-gemini-bot
-    ```
+---
 
-### Recommended Hosts
-*   **Railway / Fly.io / Heroku:** Great for easy deployment.
-*   **DigitalOcean / AWS / Google Cloud:** Use a small VPS (Ubuntu) for maximum control and lowest latency.
+## 🐳 Docker
 
+```bash
+docker build -t argus-bot .
+docker run --env-file .env argus-bot
+```
+
+---
+
+## 📜 License
+
+MIT © [Chaitanyahoon](https://github.com/Chaitanyahoon)
+
+---
+
+<div align="center">
+
+*Star ⭐ this repo if Argus is useful to you!*
+
+</div>

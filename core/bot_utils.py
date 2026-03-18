@@ -1,14 +1,17 @@
 """
 Shared utilities for the Discord bot.
+Provides fuzzy matching for members and channels with comprehensive type hints.
 """
 
 import logging
 from difflib import SequenceMatcher
+from typing import Optional, Union
+
 import discord
 
 logger = logging.getLogger(__name__)
 
-def fuzzy_find_member(guild: discord.Guild, name: str) -> discord.Member | None:
+def fuzzy_find_member(guild: discord.Guild, name: str) -> Optional[discord.Member]:
     """Find a guild member by fuzzy-matching their display name or username."""
     name_lower = name.lower().strip()
     best_match: discord.Member | None = None
@@ -42,8 +45,10 @@ def fuzzy_find_member(guild: discord.Guild, name: str) -> discord.Member | None:
     return None
 
 def fuzzy_find_channel(
-    guild: discord.Guild, name: str, channel_type: discord.ChannelType | None = None
-) -> discord.abc.GuildChannel | None:
+    guild: discord.Guild,
+    name: str,
+    channel_type: Optional[discord.ChannelType] = None
+) -> Optional[Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel]]:
     """Find a guild channel by fuzzy-matching its name."""
     name_lower = name.lower().strip().replace(" ", "-")
     best_match: discord.abc.GuildChannel | None = None
