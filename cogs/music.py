@@ -13,6 +13,7 @@ import discord
 from discord.ext import commands
 import logging
 from typing import Optional, List
+import core.embeds as E
 
 from core.music_player import (
     MusicManager, MusicPlayer, resolve_tracks, Track,
@@ -21,13 +22,6 @@ from core.music_player import (
 )
 
 logger = logging.getLogger(__name__)
-
-# ── Colour palette ─────────────────────────────────────────────────────────────
-_BLUE   = 0x0066ff
-_GREEN  = 0x00ff88
-_RED    = 0xff3355
-_PURPLE = 0x6600ff
-_GOLD   = 0xffba00
 
 
 def _fmt_dur(seconds: int | None) -> str:
@@ -60,33 +54,29 @@ class MusicCog(commands.Cog, name="Music"):
         if ctx.author.voice and ctx.author.voice.channel:   # type: ignore[union-attr]
             await ctx.author.voice.channel.connect()         # type: ignore[union-attr]
             return True
-        await ctx.send(embed=discord.Embed(
-            title="❌ Voice Required",
-            description="Join a voice channel first.",
-            color=_RED,
-        ))
+        await ctx.send(embed=E.error("Voice Required", "Join a voice channel first.", ctx))
         return False
 
     # ─────────────────────────────────────────── join / leave
     @commands.command(name="join", help="Join your current voice channel.")
     async def join_vc(self, ctx: commands.Context):
         if not ctx.author.voice or not ctx.author.voice.channel:  # type: ignore[union-attr]
-            await ctx.send(embed=discord.Embed(title="❌ Error", description="You must be in a voice channel.", color=_RED))
+            await ctx.send(embed=E.error("Voice Required", "You must be in a voice channel.", ctx))
             return
         channel = ctx.author.voice.channel  # type: ignore[union-attr]
         if ctx.voice_client:
             await ctx.voice_client.move_to(channel)
         else:
             await channel.connect()
-        await ctx.send(embed=discord.Embed(title="📡 Connected", description=f"Joined **{channel.name}**", color=_GREEN))
+        await ctx.send(embed=E.success("📡 Connected", f"Joined **{channel.name}**", ctx))
 
     @commands.command(name="leave", help="Disconnect from the voice channel.")
     async def leave_vc(self, ctx: commands.Context):
         if not ctx.voice_client:
-            await ctx.send(embed=discord.Embed(title="❌ Error", description="I'm not in a voice channel.", color=_RED))
+            await ctx.send(embed=E.error("Not Connected", "I'm not in a voice channel.", ctx))
             return
         await ctx.voice_client.disconnect()
-        await ctx.send(embed=discord.Embed(title="📡 Disconnected", description="Left the voice channel.", color=_GOLD))
+        await ctx.send(embed=E.warning("📡 Disconnected", "Left the voice channel.", ctx))
 
     # ─────────────────────────────────────────── play / skip / stop / pause / resume
     @commands.command(name="play", aliases=["p"], help="Play a song or Spotify/YouTube URL.")
@@ -102,7 +92,7 @@ class MusicCog(commands.Cog, name="Music"):
             tracks = await resolve_tracks(query, ctx.author)  # type: ignore[arg-type]
 
         if not tracks:
-            await ctx.send(embed=discord.Embed(title="❌ Not Found", description=f"No tracks found for `{query}`", color=_RED))
+            await ctx.send(embed=E.error("❌ Not Found", f"No tracks found for `{query}`", ctx))
             return
 
         player: MusicPlayer = mm.get_player_for_vc(ctx.voice_client)  # type: ignore[arg-type]
@@ -110,15 +100,18 @@ class MusicCog(commands.Cog, name="Music"):
         if len(tracks) == 1:
             t = tracks[0]
             await player.play(t)
-            embed = discord.Embed(title="▶️ Now Playing", description=f"**{t.title}**{_fmt_dur(t.duration)}", color=_GREEN)
-            embed.set_footer(text=f"Requested by {t.requested_by_name}")
-            await ctx.send(embed=embed)
+            await ctx.send(embed=E.now_playing(
+                t,
+                volume=int(player.volume * 100),
+                loop=player.loop_mode,
+                shuffle=player.shuffle,
+            ))
         else:
             started = await player.enqueue_many(tracks)
             desc = f"Added **{len(tracks)}** tracks to the queue."
             if started:
                 desc += f"\n▶️ Started: **{started.title}**"
-            await ctx.send(embed=discord.Embed(title="🎵 Playlist Queued", description=desc, color=_BLUE))
+            await ctx.send(embed=E.info("🎵 Playlist Queued", desc, ctx))
 
     @commands.command(name="skip", aliases=["s"], help="Skip the current track.")
     async def skip_music_cmd(self, ctx: commands.Context):
@@ -129,8 +122,8 @@ class MusicCog(commands.Cog, name="Music"):
         await player.skip()
         desc = f"Skipped **{current.title}**" if current else "Skipped."
         if player.current:
-            desc += f"\n▶️ Now playing: **{player.current.title}**"
-        await ctx.send(embed=discord.Embed(title="⏭️ Skipped", description=desc, color=_GOLD))
+            desc += f"\n▶️ Now: **{player.current.title}**"
+        await ctx.send(embed=E.warning("⏭️ Skipped", desc, ctx))
 
     @commands.command(name="stop", help="Stop playback and clear the queue.")
     async def stop_music_cmd(self, ctx: commands.Context):
@@ -138,23 +131,23 @@ class MusicCog(commands.Cog, name="Music"):
         if not player or not ctx.voice_client:
             return
         await player.stop()
-        await ctx.send(embed=discord.Embed(title="🛑 Stopped", description="Playback stopped and queue cleared.", color=_RED))
+        await ctx.send(embed=E.error("🛑 Stopped", "Playback stopped and queue cleared.", ctx))
 
     @commands.command(name="pause", help="Pause the current track.")
     async def pause_cmd(self, ctx: commands.Context):
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.pause()
-            await ctx.send(embed=discord.Embed(title="⏸️ Paused", color=_GOLD))
+            await ctx.send(embed=E.warning("⏸️ Paused", "Use `!resume` to continue.", ctx))
         else:
-            await ctx.send("Nothing is playing.")
+            await ctx.send(embed=E.error("Nothing Playing", "There is nothing to pause.", ctx))
 
     @commands.command(name="resume", help="Resume paused playback.")
     async def resume_cmd(self, ctx: commands.Context):
         if ctx.voice_client and ctx.voice_client.is_paused():
             ctx.voice_client.resume()
-            await ctx.send(embed=discord.Embed(title="▶️ Resumed", color=_GREEN))
+            await ctx.send(embed=E.success("▶️ Resumed", "", ctx))
         else:
-            await ctx.send("Playback is not paused.")
+            await ctx.send(embed=E.error("Not Paused", "Playback is not paused.", ctx))
 
     # ─────────────────────────────────────────── queue / np
     @commands.command(name="queue", aliases=["q"], help="Show the current music queue.")
@@ -162,49 +155,22 @@ class MusicCog(commands.Cog, name="Music"):
         player = self._get_player(ctx)
         if not player:
             return
-        q = player.queue
-
-        # Status line
-        status_parts = []
-        if player.loop_mode == LOOP_TRACK: status_parts.append("🔂 Loop: Track")
-        if player.loop_mode == LOOP_QUEUE: status_parts.append("🔁 Loop: Queue")
-        if player.shuffle:                 status_parts.append("🔀 Shuffle: On")
-        vol_pct = int(player.volume * 100)
-        status_parts.append(f"🔊 {vol_pct}%")
-
-        lines: List[str] = []
-        if player.current:
-            lines.append(f"▶️ **Now Playing:** {player.current.title}{_fmt_dur(player.current.duration)}")
-        if q:
-            for i, t in enumerate(q[:10], 1):
-                lines.append(f"`{i}.` {t.title}{_fmt_dur(t.duration)} — *{t.requested_by_name}*")
-            if len(q) > 10:
-                lines.append(f"… and **{len(q) - 10}** more tracks.")
-        else:
-            lines.append("Queue is empty.")
-
-        embed = discord.Embed(title="🎵 Music Queue", description="\n".join(lines), color=_BLUE)
-        embed.set_footer(text=" · ".join(status_parts))
-        await ctx.send(embed=embed)
+        await ctx.send(embed=E.queue_embed(player))
 
     @commands.command(name="nowplaying", aliases=["np"], help="Show the current track.")
     async def nowplaying_cmd(self, ctx: commands.Context):
         player = self._get_player(ctx)
         if not player:
             return
-        current = player.current
-        if not current:
-            await ctx.send(embed=discord.Embed(title="🔇 Nothing Playing", color=_RED))
+        if not player.current:
+            await ctx.send(embed=E.error("🔇 Nothing Playing", "Start something with `!play`.", ctx))
             return
-        embed = discord.Embed(
-            title="▶️ Now Playing",
-            description=f"**{current.title}**{_fmt_dur(current.duration)}\n\n*Requested by {current.requested_by_name}*",
-            color=_GREEN,
-        )
-        embed.add_field(name="🔊 Volume", value=f"{int(player.volume * 100)}%")
-        embed.add_field(name="🔂 Loop",   value=player.loop_mode.title())
-        embed.add_field(name="🔀 Shuffle", value="On" if player.shuffle else "Off")
-        await ctx.send(embed=embed)
+        await ctx.send(embed=E.now_playing(
+            player.current,
+            volume=int(player.volume * 100),
+            loop=player.loop_mode,
+            shuffle=player.shuffle,
+        ))
 
     @commands.command(name="remove", aliases=["rm"], help="Remove a track from the queue by position.")
     async def remove_cmd(self, ctx: commands.Context, position: int):
@@ -213,10 +179,9 @@ class MusicCog(commands.Cog, name="Music"):
             return
         removed = await player.remove(position)
         if removed:
-            await ctx.send(embed=discord.Embed(
-                title="🗑️ Removed", description=f"Removed **{removed.title}** from the queue.", color=_GOLD))
+            await ctx.send(embed=E.warning("🗑️ Removed", f"Removed **{removed.title}** from the queue.", ctx))
         else:
-            await ctx.send(f"❌ No track at position `{position}`.")
+            await ctx.send(embed=E.error("Not Found", f"No track at position `{position}`.", ctx))
 
     # ─────────────────────────────────────────── loop
     @commands.command(name="loop", help="Set loop mode: none | track | queue")
@@ -227,15 +192,15 @@ class MusicCog(commands.Cog, name="Music"):
         mode = mode.lower().strip()
         if mode in ("track", "t", "song"):
             player.set_loop(LOOP_TRACK)
-            await ctx.send(embed=discord.Embed(title="🔂 Loop: Track", description="Repeating the current track.", color=_PURPLE))
+            await ctx.send(embed=E.purple("🔂 Loop: Track", "Repeating the current track.", ctx))
         elif mode in ("queue", "q", "all"):
             player.set_loop(LOOP_QUEUE)
-            await ctx.send(embed=discord.Embed(title="🔁 Loop: Queue", description="Looping the entire queue.", color=_PURPLE))
+            await ctx.send(embed=E.purple("🔁 Loop: Queue", "Looping the entire queue.", ctx))
         elif mode in ("none", "off", ""):
             player.set_loop(LOOP_NONE)
-            await ctx.send(embed=discord.Embed(title="➡️ Loop: Off", description="Loop disabled.", color=_GOLD))
+            await ctx.send(embed=E.warning("➡️ Loop: Off", "Loop disabled.", ctx))
         else:
-            await ctx.send("Usage: `!loop [none|track|queue]`")
+            await ctx.send(embed=E.error("Invalid Mode", "Usage: `!loop [none|track|queue]`", ctx))
 
     # ─────────────────────────────────────────── shuffle
     @commands.command(name="shuffle", help="Toggle shuffle mode.")
@@ -245,9 +210,9 @@ class MusicCog(commands.Cog, name="Music"):
             return
         state = player.toggle_shuffle()
         if state:
-            await ctx.send(embed=discord.Embed(title="🔀 Shuffle: On", description="Queue has been shuffled.", color=_PURPLE))
+            await ctx.send(embed=E.purple("🔀 Shuffle: On", "Queue has been shuffled.", ctx))
         else:
-            await ctx.send(embed=discord.Embed(title="➡️ Shuffle: Off", description="Shuffle disabled.", color=_GOLD))
+            await ctx.send(embed=E.warning("➡️ Shuffle: Off", "Shuffle disabled.", ctx))
 
     # ─────────────────────────────────────────── volume
     @commands.command(name="volume", aliases=["vol"], help="Set volume 0–200%. Example: !volume 80")
@@ -256,15 +221,12 @@ class MusicCog(commands.Cog, name="Music"):
         if not player:
             return
         if not 0 <= volume <= 200:
-            await ctx.send("❌ Volume must be between `0` and `200`.")
+            await ctx.send(embed=E.error("Invalid Volume", "Must be between `0` and `200`.", ctx))
             return
         player.set_volume(volume / 100)
-        bar = "█" * (volume // 10) + "░" * (20 - volume // 10)
-        await ctx.send(embed=discord.Embed(
-            title="🔊 Volume Set",
-            description=f"`{bar}` **{volume}%**",
-            color=_BLUE,
-        ))
+        filled = round(volume / 10)
+        bar = "█" * filled + "░" * (20 - filled)
+        await ctx.send(embed=E.info("🔊 Volume", f"`{bar}`  **{volume}%**", ctx))
 
     # ─────────────────────────────────────────── playlists
     @commands.group(name="playlist", aliases=["pl"], invoke_without_command=True, help="Saved playlists.")
@@ -284,15 +246,11 @@ class MusicCog(commands.Cog, name="Music"):
             return
         tracks = ([player.current] if player.current else []) + player.queue
         if not tracks:
-            await ctx.send("❌ Nothing in the queue to save.")
+            await ctx.send(embed=E.error("Empty Queue", "Nothing in the queue to save.", ctx))
             return
-        queries = [t.title for t in tracks]  # use titles as search queries for re-resolution
+        queries = [t.title for t in tracks]
         db_save_playlist(ctx.guild.id, ctx.author.id, name, queries)  # type: ignore[union-attr]
-        await ctx.send(embed=discord.Embed(
-            title="💾 Playlist Saved",
-            description=f"Saved **{len(queries)}** tracks as `{name}`.",
-            color=_GREEN,
-        ))
+        await ctx.send(embed=E.success("💾 Playlist Saved", f"Saved **{len(queries)}** tracks as `{name}`.", ctx))
 
     @playlist_group.command(name="play", help="Load and play a saved playlist.")
     async def playlist_play(self, ctx: commands.Context, *, name: str):
@@ -304,11 +262,7 @@ class MusicCog(commands.Cog, name="Music"):
             await ctx.send(f"❌ No playlist named `{name}` found.")
             return
 
-        msg = await ctx.send(embed=discord.Embed(
-            title="⏳ Loading Playlist",
-            description=f"Resolving **{len(queries)}** tracks from `{name}`…",
-            color=_BLUE,
-        ))
+        msg = await ctx.send(embed=E.info("⏳ Loading Playlist", f"Resolving **{len(queries)}** tracks from `{name}`…"))
 
         tracks: list[Track] = []
         async with ctx.typing():
@@ -318,7 +272,7 @@ class MusicCog(commands.Cog, name="Music"):
                     tracks.append(resolved[0])
 
         if not tracks:
-            await msg.edit(embed=discord.Embed(title="❌ Failed", description="Could not resolve any tracks.", color=_RED))
+            await msg.edit(embed=E.error("❌ Failed", "Could not resolve any tracks."))
             return
 
         player: MusicPlayer = mm.get_player_for_vc(ctx.voice_client)  # type: ignore[arg-type]
@@ -326,24 +280,24 @@ class MusicCog(commands.Cog, name="Music"):
         desc = f"Loaded **{len(tracks)}** tracks from `{name}`."
         if started:
             desc += f"\n▶️ Started: **{started.title}**"
-        await msg.edit(embed=discord.Embed(title="🎵 Playlist Loaded", description=desc, color=_GREEN))
+        await msg.edit(embed=E.success("🎵 Playlist Loaded", desc))
 
     @playlist_group.command(name="list", help="List your saved playlists.")
     async def playlist_list(self, ctx: commands.Context):
         names = db_list_playlists(ctx.guild.id, ctx.author.id)  # type: ignore[union-attr]
         if not names:
-            await ctx.send("You have no saved playlists. Use `!playlist save <name>` to save one.")
+            await ctx.send(embed=E.info("📋 No Playlists", "Use `!playlist save <name>` to save the current queue.", ctx))
             return
-        desc = "\n".join(f"`{i}.` {n}" for i, n in enumerate(names, 1))
-        await ctx.send(embed=discord.Embed(title="📋 Your Playlists", description=desc, color=_BLUE))
+        desc = "\n".join(f"`{i:>2}.`  {n}" for i, n in enumerate(names, 1))
+        await ctx.send(embed=E.info("📋 Your Playlists", desc, ctx))
 
     @playlist_group.command(name="delete", help="Delete a saved playlist.")
     async def playlist_delete(self, ctx: commands.Context, *, name: str):
         deleted = db_delete_playlist(ctx.guild.id, ctx.author.id, name)  # type: ignore[union-attr]
         if deleted:
-            await ctx.send(embed=discord.Embed(title="🗑️ Deleted", description=f"Playlist `{name}` deleted.", color=_GOLD))
+            await ctx.send(embed=E.warning("🗑️ Deleted", f"Playlist `{name}` deleted.", ctx))
         else:
-            await ctx.send(f"❌ No playlist named `{name}` found.")
+            await ctx.send(embed=E.error("Not Found", f"No playlist named `{name}`.", ctx))
 
 
 async def setup(bot: commands.Bot):
