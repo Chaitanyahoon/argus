@@ -44,7 +44,9 @@ class MusicCog(commands.Cog, name="Music"):
 
     def _get_player(self, ctx: commands.Context) -> Optional[MusicPlayer]:
         mm = self._get_mm()
-        if not mm or not ctx.guild:
+        if not mm:
+            return None
+        if not ctx.guild:
             return None
         return mm.get_player(ctx.guild.id)
 
@@ -116,7 +118,9 @@ class MusicCog(commands.Cog, name="Music"):
     @commands.command(name="skip", aliases=["s"], help="Skip the current track.")
     async def skip_music_cmd(self, ctx: commands.Context):
         player = self._get_player(ctx)
-        if not player or not ctx.voice_client:
+        if not player:
+            return
+        if not ctx.voice_client:
             return
         current = player.current
         await player.skip()
@@ -128,7 +132,9 @@ class MusicCog(commands.Cog, name="Music"):
     @commands.command(name="stop", help="Stop playback and clear the queue.")
     async def stop_music_cmd(self, ctx: commands.Context):
         player = self._get_player(ctx)
-        if not player or not ctx.voice_client:
+        if not player:
+            return
+        if not ctx.voice_client:
             return
         await player.stop()
         await ctx.send(embed=E.error("🛑 Stopped", "Playback stopped and queue cleared.", ctx))
