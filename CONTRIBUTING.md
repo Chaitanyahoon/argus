@@ -54,21 +54,19 @@ python bot.py
 
 ### Example Function:
 ```python
-async def execute_moderation(guild: discord.Guild, username: str, action: str) -> str:
+async def start_voice_session(guild: discord.Guild, channel: discord.VoiceChannel) -> str:
     """
-    Execute a moderation action on a guild member.
+    Start a voice AI session in the specified channel.
     
     Args:
         guild: The Discord guild
-        username: Name of the target member
-        action: Action to execute (kick, ban, mute)
+        channel: Voice channel to join
     
     Returns:
         Status message (success or error)
     """
-    member = fuzzy_find_member(guild, username)
-    if not member:
-        return f"❌ User '{username}' not found."
+    if not channel:
+        return "❌ Voice channel not found."
     
     # ... rest of implementation
 ```

@@ -30,16 +30,14 @@
 <tr>
 <td width="50%">
 
-### 📋 Server Information
-Easy access to server statistics, member info, and role details. Help users learn about your community at a glance.
+### � Wellness & Therapy
+Guided mood check-ins, wellness tracking, and crisis support resources. A supportive companion for mental health awareness.
 
 </td>
 <td width="50%">
 
 ### 🎤 Voice AI Conversations
 Real-time voice chat powered by Gemini 2.5 Flash. Talk naturally in voice channels — the bot listens and responds naturally.
-
-> Note: Music playback features have been disabled in this trimmed deployment to reduce hosting costs.
 
 </td>
 </tr>
@@ -90,18 +88,13 @@ python bot.py
 
 ## 🎮 Command Reference
 
-### 📋 Information & Help
+### � Wellness
 | Command | Description |
 |---------|-------------|
-| `/serverinfo` | Server statistics & details |
-| `/userinfo [user]` | User profile information |
-| `/roleinfo <role>` | Role details |
-| `/botinfo` | Planthesia Bot info |
-| `/help` | Command help reference |
-| `!playlist save <name>` | 💾 Save current queue |
-| `!playlist play <name>` | ▶️ Load saved playlist |
-| `!playlist list` | 📋 List your playlists |
-| `!playlist delete <name>` | 🗑️ Delete a playlist |
+| `!checkin` | Guided mood check-in |
+| `!moodlog` | View your mood history |
+| `!journal` | Write a journal entry |
+| `!wellness` | Wellness dashboard |
 
 ### 🎙️ AI Voice
 | Command | Description |
@@ -111,43 +104,30 @@ python bot.py
 | `!stop` | End AI voice session |
 | `!leave` | Disconnect from voice |
 
-### 🛡️ Auto-Moderation
-| Command | Description |
-|---------|-------------|
-| `!automod toggle toxicity` | Toggle toxicity detection |
-| `!automod toggle spam` | Toggle spam detection |
-| `!automod threshold <0.1–1.0>` | Set AI sensitivity |
-| `!automod status` | View current settings |
-
-### 📊 Stats & Levels
-| Command | Description |
-|---------|-------------|
-| `!level [@user]` | View XP level + progress bar |
-| `!leaderboard [metric]` | Server rankings |
-| `!achievements [@user]` | Unlocked achievements |
-| `!stats` | Server-wide statistics |
-| `!profile [@user]` | Full user profile card |
-
-### 🔐 Permissions & Admin
-| Command | Description |
-|---------|-------------|
-| `!autosetup` | Auto-create all Argus channels |
-| `!setup` | View server configuration |
-| `!status` | Bot system status |
-| `!perms show` | View permission levels |
-| `!setroleperm <role> <level>` | Set role permission level |
-| `!trustuser / !blacklist` | Manage trusted users |
-
 ---
 
 ## 🗂️ Project Structure
 
 ```
-argus/
+discordbot/
 ├── bot.py                    ← Entry point & cog loader
 ├── config.py                 ← Env config
 ├── requirements.txt
 ├── pyrightconfig.json        ← IDE type checking config
+├── cogs/
+│   ├── therapy.py            ← Wellness features
+│   └── voice.py              ← Voice AI commands
+└── core/
+    ├── audio_utils.py        ← Audio processing
+    ├── bot_utils.py          ← Shared utilities
+    ├── database.py           ← SQLite database
+    ├── embeds.py             ← Discord embed helpers
+    ├── live_session.py       ← Gemini Live API
+    ├── therapy.py            ← Wellness manager
+    ├── transcriber.py        ← Speech-to-text
+    ├── voice_*.py            ← Voice processing modules
+    └── ...
+```
 ├── Dockerfile
 │
 ├── cogs/                     ← Discord command modules (core)

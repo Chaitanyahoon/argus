@@ -27,9 +27,7 @@ from config import Config
 from logger import setup_logging, get_logger
 from core.voice_listener import VoiceManager
 # music manager removed for cost-saving deployment (music features pruned)
-from core.argus_systems import ArgusManager, modify_response
 from core.voice_reconnection import VoiceReconnectionManager
-from core.permissions import PermissionManager, PermissionLevel, require_permission
 from core.voice_session_timeout import VoiceSessionTimeoutManager
 
 # Voice receive extension: connect with VoiceRecvClient to support both send and receive
@@ -155,9 +153,7 @@ bot = ArgusBot(
 
 # Global managers (assigned to bot object in on_ready)
 voice_manager: VoiceManager | None = None
-argus_manager: ArgusManager | None = None
 voice_reconnection_manager: VoiceReconnectionManager | None = None
-permission_manager: PermissionManager | None = None
 voice_session_timeout_manager: VoiceSessionTimeoutManager | None = None
 _background_tasks: list[asyncio.Task] = []  # Track background tasks for cleanup
 
@@ -190,12 +186,9 @@ async def _update_bot_status() -> None:
 
 @bot.event
 async def on_ready():
-    global voice_manager, argus_manager, voice_reconnection_manager, permission_manager, voice_session_timeout_manager, _background_tasks
+    global voice_manager, voice_reconnection_manager, voice_session_timeout_manager, _background_tasks
     
-    argus_manager = ArgusManager(bot)
-    bot.argus_manager = argus_manager
-    
-    voice_manager = VoiceManager(bot, argus_manager)
+    voice_manager = VoiceManager(bot)
     bot.voice_manager = voice_manager
     
     
@@ -203,8 +196,6 @@ async def on_ready():
     voice_reconnection_manager.start()
     bot.voice_reconnection_manager = voice_reconnection_manager
     
-    permission_manager = PermissionManager(argus_manager.db)
-    bot.permission_manager = permission_manager
     
     voice_session_timeout_manager = VoiceSessionTimeoutManager(bot)
     voice_session_timeout_manager.start()
