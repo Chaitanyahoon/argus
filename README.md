@@ -1,23 +1,22 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.herokuapp.com?font=Inter&weight=900&size=48&pause=1000&color=0066FF&center=true&vCenter=true&width=700&height=90&lines=👁+ARGUS;AI-Powered+Discord+Bot;Born+to+Moderate.+Built+to+Vibe." alt="Argus" />
+<img src="https://readme-typing-svg.herokuapp.com?font=Inter&weight=900&size=48&pause=1000&color=22C55E&center=true&vCenter=true&width=700&height=90&lines=🌿+PLANTHESIA;Server+Helper+Bot;Grow+Your+Community." alt="Planthesia" />
 
 <br/>
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![discord.py](https://img.shields.io/badge/discord.py-2.3+-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordpy.readthedocs.io)
-[![Gemini AI](https://img.shields.io/badge/Gemini_2.0_Flash-Live_AI-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
-[![Flask](https://img.shields.io/badge/Flask-Dashboard-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![License](https://img.shields.io/badge/License-MIT-00FF88?style=for-the-badge)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![discord.py](https://img.shields.io/badge/discord.py-2.7+-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discordpy.readthedocs.io)
+[![Gemini AI](https://img.shields.io/badge/Gemini_2.5_Flash-Live_Voice-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev)
+[![License](https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge)](LICENSE)
 
 <br/>
 
-> **Argus** is a next-generation Discord bot powered by **Gemini 2.0 Flash**.  
-> It listens, moderates, plays music, and tracks your server — all in real time.
+> **Planthesia** is a friendly, helpful Discord bot designed to grow your community.  
+> Handle support tickets, welcome members, share server info, and enjoy voice conversations.
 
 <br/>
 
-**[Chaitanyahoon](https://github.com/Chaitanyahoon)** · Built with 👁️ and Python
+**By [Chaitanyahoon](https://github.com/Chaitanyahoon)** · Built with 🌿 and Python
 
 <br/>
 
@@ -25,32 +24,31 @@
 
 ---
 
-## ✨ What Argus Does
+## 🌿 What Planthesia Does
 
 <table>
 <tr>
 <td width="50%">
 
-### 🧠 Live AI Voice
-Real-time bidirectional voice conversation via Gemini 2.0 Flash Live API. Talk naturally — Argus listens, thinks, and responds in voice.
+### 🎫 Ticket System
+Complete support ticket management. Users create tickets for help, bugs, or suggestions. Staff can view, manage, and resolve all tickets with ease.
 
-### 🛡️ AI Auto-Moderation  
-Toxicity & spam detection with configurable AI thresholds. Every flagged message is logged with confidence scores.
+### 👋 Welcome & Onboarding
+Automatic welcome messages for new members. Self-assignable roles with buttons. Customizable auto-role assignment on join.
 
-### 🎵 Music System
-YouTube & Spotify playback with loop (track/queue), shuffle, volume control, and persistent saved playlists backed by SQLite.
+### 📋 Server Information
+Easy access to server statistics, member info, and role details. Help users learn about your community at a glance.
 
 </td>
 <td width="50%">
 
-### 🏆 XP & Leveling
-Full XP economy with level-up events, achievement unlocks, server leaderboards, and per-user profile cards.
+### 🎤 Voice AI Conversations
+Real-time voice chat powered by Gemini 2.5 Flash. Talk naturally in voice channels — the bot listens and responds naturally.
 
-### 📊 Web Dashboard
-Premium dark glassmorphism dashboard with live data from the Flask API — overview, leaderboard, and automod settings.
+### 🎙️ Temporary Voice Channels
+Auto-create personal voice channels on join. Auto-cleanup when empty. Full management interface for voice control.
 
-### 🔊 Temp Voice Channels
-Auto-create personal voice channels on join. Auto-delete when empty. Full management interface included.
+> Note: Music playback features have been disabled in this trimmed deployment to reduce hosting costs.
 
 </td>
 </tr>
@@ -61,7 +59,7 @@ Auto-create personal voice channels on join. Auto-delete when empty. Full manage
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Python 3.11+**
+- **Python 3.13+**
 - [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`
 - [Discord Bot Token](https://discord.com/developers/applications)
 - [Gemini API Key](https://aistudio.google.com/app/apikey)
@@ -82,42 +80,47 @@ pip install -r requirements.txt
 DISCORD_TOKEN=your_discord_bot_token
 GEMINI_API_KEY=your_gemini_api_key
 ADMIN_USER_IDS=your_discord_user_id
-COMMAND_PREFIX=!
+COMMAND_PREFIX=>>
 GEMINI_VOICE=Aoede
 
-# Dashboard (optional)
-DISCORD_CLIENT_ID=your_client_id
-DISCORD_CLIENT_SECRET=your_client_secret
-DASHBOARD_SECRET_KEY=change_this_to_a_random_string
+# Optional settings
+LOG_LEVEL=INFO
+WHISPER_MODEL=base.en
 ```
 
 ### 3 — Run
 
 ```bash
-# Bot only
+# Start the bot
 python bot.py
-
-# Bot + web dashboard API
-python run_dashboard.py
 ```
 
 ---
 
 ## 🎮 Command Reference
 
-### 🎵 Music
+### � Tickets
 | Command | Description |
 |---------|-------------|
-| `!play <query>` | Play from YouTube or Spotify URL |
-| `!skip` / `!s` | Skip current track |
-| `!stop` | Stop & clear queue |
-| `!pause` / `!resume` | Pause or resume |
-| `!queue` / `!q` | View full queue with status |
-| `!np` | Now playing card |
-| `!loop [none\|track\|queue]` | Set loop mode |
-| `!shuffle` | Toggle shuffle |
-| `!volume <0–200>` | Set volume with visual bar |
-| `!remove <pos>` | Remove track from queue |
+| `/ticket` | Create a support ticket |
+| `/tickets` | View all tickets (staff) |
+| `>>setup-tickets` | Setup ticket system |
+
+### 👋 Welcome & Onboarding
+| Command | Description |
+|---------|-------------|
+| `>>setup-welcome [channel]` | Setup welcome system |
+| `>>setup-roles [channel]` | Setup role assignment buttons |
+| `>>set-auto-role <role>` | Auto-assign role to new members |
+
+### 📋 Information & Help
+| Command | Description |
+|---------|-------------|
+| `/serverinfo` | Server statistics & details |
+| `/userinfo [user]` | User profile information |
+| `/roleinfo <role>` | Role details |
+| `/botinfo` | Planthesia Bot info |
+| `/help` | Command help reference |
 | `!playlist save <name>` | 💾 Save current queue |
 | `!playlist play <name>` | ▶️ Load saved playlist |
 | `!playlist list` | 📋 List your playlists |
@@ -166,13 +169,11 @@ python run_dashboard.py
 argus/
 ├── bot.py                    ← Entry point & cog loader
 ├── config.py                 ← Env config
-├── run_dashboard.py          ← Flask API launcher
 ├── requirements.txt
 ├── pyrightconfig.json        ← IDE type checking config
 ├── Dockerfile
 │
-├── cogs/                     ← Discord command modules (8 cogs)
-│   ├── music.py              ← 20 music commands
+├── cogs/                     ← Discord command modules (core)
 │   ├── argus.py              ← AI + leveling commands
 │   ├── automod.py            ← AI moderation controls
 │   ├── stats.py              ← XP, profiles, leaderboard
@@ -183,7 +184,6 @@ argus/
 │
 ├── core/                     ← Backend systems
 │   ├── embeds.py             ← 🎨 Shared embed design system
-│   ├── music_player.py       ← MusicPlayer / MusicManager
 │   ├── argus_systems.py      ← ArgusManager + AI analysis
 │   ├── database.py           ← SQLite data layer
 │   ├── live_session.py       ← Gemini Live API connection
@@ -191,18 +191,6 @@ argus/
 │   ├── achievements.py       ← Achievement engine
 │   ├── permissions.py        ← Permission system
 │   └── enhanced_logging.py   ← Structured logging + metrics
-│
-├── dashboard/                ← Web admin dashboard
-│   ├── index.html            ← Overview page
-│   ├── leaderboard.html      ← Rankings + podium
-│   ├── automod.html          ← AI moderation settings
-│   ├── css/style.css         ← Glassmorphism design system
-│   ├── js/dashboard.js       ← Live API fetch + fallback
-│   └── api/                  ← Flask REST API
-│       ├── app.py            ← Flask entry point (CORS)
-│       ├── routes.py         ← 12 REST endpoints
-│       ├── auth.py           ← Discord OAuth2
-│       └── db.py             ← SQLite query layer
 │
 └── data/
     └── argus.db              ← SQLite database
@@ -233,25 +221,6 @@ discord-ext-voice-recv  ──►  faster-whisper  (Speech → Text)
                                     ▼
                         Played back to voice channel
 ```
-
----
-
-## 🌐 Web Dashboard
-
-Start the Flask API, then open the dashboard in your browser:
-
-```bash
-python run_dashboard.py
-# → http://localhost:5000
-```
-
-| Page | What it shows |
-|------|---------------|
-| **Overview** | Live stat cards, activity feed, server health metrics |
-| **Leaderboard** | Gold/silver/bronze podium, full ranked table, personal stats |
-| **Auto-Mod** | AI settings, sensitivity slider, real-time action log |
-
-> Dashboard works offline too — falls back to mock data if the API isn't running.
 
 ---
 

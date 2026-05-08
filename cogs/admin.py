@@ -1,10 +1,11 @@
 """
-Admin Cog — bot management, setup automation, and activities.
+Admin Cog — bot management, setup automation, activities, and logging.
 """
 
 import discord
 from discord.ext import commands
 import logging
+from core.bot_logs import get_logs_manager
 import core.embeds as E
 from config import Config
 
@@ -34,6 +35,7 @@ class AdminCog(commands.Cog, name="Admin"):
             trigger   = await category.create_voice_channel("➕ Create VC")
             logs      = await category.create_text_channel("👁️-nexus-logs")
             interface = await category.create_text_channel("🎮-vc-management")
+            bot_logs  = await category.create_text_channel("🤖-bot-logs")
 
             am.db.set_guild(
                 ctx.guild.id,
@@ -41,6 +43,7 @@ class AdminCog(commands.Cog, name="Admin"):
                 temp_voice_trigger_id=trigger.id,
                 temp_voice_interface_id=interface.id,
                 logging_channel_id=logs.id,
+                bot_logs_channel_id=bot_logs.id,
             )
 
             embed = E.success("✅ Setup Complete!", "All Argus channels have been created.", ctx)
@@ -48,6 +51,8 @@ class AdminCog(commands.Cog, name="Admin"):
             embed.add_field(name="🔊 Trigger VC", value=trigger.mention,    inline=True)
             embed.add_field(name="📋 Nexus Logs", value=logs.mention,       inline=True)
             embed.add_field(name="🎮 Interface",  value=interface.mention,  inline=True)
+            embed.add_field(name="🤖 Bot Logs",   value=bot_logs.mention,   inline=True)
+            embed.set_footer(text="Run >>botlogs, >>health, or >>errors to monitor bot performance")
             await msg.edit(embed=embed)
 
         except Exception as e:
@@ -81,6 +86,72 @@ class AdminCog(commands.Cog, name="Admin"):
             f"Mod logs will be sent to {channel.mention}.",
             ctx,
         ))
+
+    @commands.command(name="botlogs", help="Show recent bot logs.")
+    @commands.has_permissions(administrator=True)
+    async def botlogs_cmd(self, ctx: commands.Context, lines: int = 20, level: str = None):
+        """Display recent bot logs with optional filtering by level."""
+        if lines > 50:
+            lines = 50
+        if lines < 5:
+            lines = 5
+
+        logs_mgr = get_logs_manager()
+        log_content = logs_mgr.get_latest_logs(lines=lines, level=level)
+
+        embed = E.info("🤖 Bot Logs", log_content, ctx)
+        if level:
+            embed.title += f" ({level})"
+        embed.set_footer(text=f"Last {lines} lines")
+        
+        try:
+            await ctx.send(embed=embed)
+        except discord.HTTPException:
+            # If too large, send in code block
+            await ctx.send(f"**🤖 Bot Logs** ({level or 'all levels'})\n{log_content}")
+
+    @commands.command(name="health", help="Show bot system health status.")
+    @commands.has_permissions(administrator=True)
+    async def health_cmd(self, ctx: commands.Context):
+        """Display bot system health including error counts and warnings."""
+        logs_mgr = get_logs_manager()
+        health_status = logs_mgr.get_system_health()
+        
+        embed = E.success("💚 System Health", health_status, ctx)
+        embed.add_field(name="📊 Guilds", value=f"`{len(self.bot.guilds)}`", inline=True)
+        embed.add_field(name="📡 Latency", value=f"`{round(self.bot.latency * 1000)}ms`", inline=True)
+        embed.add_field(name="⚙️ Uptime", value="`~active`", inline=True)
+        
+        await ctx.send(embed=embed)
+
+    @commands.command(name="errors", help="Show recent errors and warnings.")
+    @commands.has_permissions(administrator=True)
+    async def errors_cmd(self, ctx: commands.Context, hours: int = 24):
+        """Display errors and warnings from the last N hours."""
+        if hours < 1 or hours > 7 * 24:
+            hours = 24
+
+        logs_mgr = get_logs_manager()
+        error_count, warning_count, summary = logs_mgr.get_errors_and_warnings(hours=hours)
+
+        if error_count > 5:
+            embed = E.warning("📋 Error Report", summary, ctx)
+        else:
+            embed = E.success("📋 Error Report", summary, ctx)
+        embed.set_footer(text=f"Last {hours} hour{'s' if hours > 1 else ''}")
+        
+        await ctx.send(embed=embed)
+
+    @commands.command(name="loglogs", help="Show available log files.")
+    @commands.has_permissions(administrator=True)
+    async def loglogs_cmd(self, ctx: commands.Context):
+        """Display information about available log files."""
+        logs_mgr = get_logs_manager()
+        logs_info = logs_mgr.get_log_timestamps()
+
+        embed = E.info("📂 Log Files", logs_info, ctx)
+        
+        await ctx.send(embed=embed)
 
 
 async def setup(bot):

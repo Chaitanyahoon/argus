@@ -147,7 +147,6 @@ discordbot/
 │   ├── bot_utils.py       # Shared utilities (fuzzy matching)
 │   ├── live_session.py    # Gemini Live API connection
 │   ├── transcriber.py     # Speech-to-text
-│   ├── music_player.py    # Music playback
 │   ├── temp_voice.py      # Temporary Voice Channels
 │   └── argus_systems.py   # XP/leveling system
 ├── data/                  # User/guild data (JSON)
@@ -229,11 +228,10 @@ logging.getLogger().setLevel(logging.DEBUG)
 breakpoint()  # Execution will pause here
 ```
 
-### Inspect Bot State
+# Inspect Bot State
 ```bash
 # In Discord
 !status         # Shows bot status
-!queue          # Music queue
 !help           # All commands
 ```
 

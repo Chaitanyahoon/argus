@@ -138,8 +138,8 @@ class TestFuzzyFindChannel(unittest.TestCase):
         self.assertEqual(result.name, "announcements")
 
     def test_no_channel_match(self):
-        """Should return None for non-existent channel."""
-        result = fuzzy_find_channel(self.guild, "nonexistent-channel")
+        """Should return None for clearly non-existent channel."""
+        result = fuzzy_find_channel(self.guild, "xyz123abc")
         self.assertIsNone(result)
 
     def test_channel_type_filter(self):

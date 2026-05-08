@@ -80,16 +80,10 @@ def navy(title: str, description: str = "", ctx=None) -> discord.Embed:
 def now_playing(track, volume: int = 100, loop: str = "none", shuffle: bool = False) -> discord.Embed:
     """Rich Now Playing card."""
     dur = _fmt_dur(track.duration)
-    embed = base(
-        "▶️  Now Playing",
-        f"### {track.title}{dur}",
-        C_SUCCESS,
-    )
-    embed.add_field(name="🔊 Volume",  value=f"{volume}%",              inline=True)
-    embed.add_field(name="🔂 Loop",    value=loop.title(),              inline=True)
-    embed.add_field(name="🔀 Shuffle", value="On" if shuffle else "Off", inline=True)
-    embed.set_footer(text=f"👁  {BOT_NAME} • Requested by {track.requested_by_name}")
-    return embed
+        """Music playback disabled in this deployment."""
+        embed = discord.Embed(title="🎵 Music Disabled", color=discord.Color.dark_gray())
+        embed.description = "Music playback features have been disabled for this deployment to reduce hosting costs."
+        return embed
 
 
 def queue_embed(player) -> discord.Embed:
@@ -115,9 +109,10 @@ def queue_embed(player) -> discord.Embed:
     else:
         lines.append("*Queue is empty*")
 
-    embed = base("🎵  Music Queue", "\n".join(lines), C_PRIMARY)
-    embed.set_footer(text=f"👁  {BOT_NAME}  ·  {' · '.join(status_parts)}")
-    return embed
+        """Music queue display disabled in this deployment."""
+        embed = discord.Embed(title="🎶 Music Disabled", color=discord.Color.dark_gray())
+        embed.description = "Music features are disabled; the queue is not available on this deployment."
+        return embed
 
 
 def level_up(member: discord.Member, new_level: int) -> discord.Embed:

@@ -47,10 +47,11 @@ class VoiceCog(commands.Cog, name="Voice"):
 
         channel = ctx.author.voice.channel
         try:
+            # Always disconnect and reconnect with VoiceRecvClient to ensure proper type
             if ctx.voice_client:
-                await ctx.voice_client.move_to(channel)
-            else:
-                await channel.connect(cls=voice_recv.VoiceRecvClient)
+                await ctx.voice_client.disconnect()
+                
+            await channel.connect(cls=voice_recv.VoiceRecvClient)
             await ctx.send(embed=E.success("📡 Connected", f"Joined **{channel.name}**.", ctx))
         except Exception as e:
             await ctx.send(embed=E.error("Connection Failed", str(e), ctx))
@@ -59,8 +60,23 @@ class VoiceCog(commands.Cog, name="Voice"):
     async def listen_command(self, ctx: commands.Context):
         vm = self.get_voice_manager()
         if not vm or not ctx.voice_client:
-            await ctx.send(embed=E.error("Not Connected", "Connect me to a voice channel first with `!join`.", ctx))
+            await ctx.send(embed=E.error("Not Connected", "Connect me to a voice channel first with `>>join`.", ctx))
             return
+
+        # Verify the voice client is a VoiceRecvClient (has listen method)
+        if not hasattr(ctx.voice_client, 'listen'):
+            # Reconnect with the proper VoiceRecvClient class
+            if ctx.author.voice and ctx.author.voice.channel:
+                await ctx.voice_client.disconnect()
+                try:
+                    await ctx.author.voice.channel.connect(cls=voice_recv.VoiceRecvClient)
+                    await ctx.send(embed=E.info("🔄 Reconnecting", "Reconnecting with proper audio support...", ctx))
+                except Exception as e:
+                    await ctx.send(embed=E.error("Connection Failed", f"Could not reconnect: {str(e)}", ctx))
+                    return
+            else:
+                await ctx.send(embed=E.error("Not in Voice", "You need to be in a voice channel.", ctx))
+                return
 
         listener = vm.get_listener(ctx.guild.id)
         status_msg = await ctx.send(embed=E.info("🔄 Connecting", "Connecting to Gemini Live API…", ctx))

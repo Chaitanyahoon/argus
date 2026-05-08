@@ -122,6 +122,27 @@ class ArgusCog(commands.Cog, name="Argus"):
         embed.add_field(name="🤖 Voice Model", value=f"`{Config.GEMINI_VOICE}`", inline=True)
         await ctx.send(embed=embed)
 
+    @commands.command(name="setprefix", aliases=["prefix"], help="Change the bot command prefix for this server.")
+    @commands.has_permissions(administrator=True)
+    async def set_prefix(self, ctx: commands.Context, new_prefix: str):
+        """Change the command prefix for this guild."""
+        am = self.get_argus_manager()
+        if not am:
+            await ctx.send(embed=E.error("Unavailable", "Argus systems not initialized.", ctx))
+            return
+        
+        if len(new_prefix) > 5:
+            await ctx.send(embed=E.error("Invalid Prefix", "Prefix must be 5 characters or fewer.", ctx))
+            return
+
+        am.db.update_guild(ctx.guild.id, prefix=new_prefix)
+        embed = E.success(
+            "✅ Prefix Updated",
+            f"Command prefix for **{ctx.guild.name}** is now `{new_prefix}`\nExample: `{new_prefix}help`",
+            ctx
+        )
+        await ctx.send(embed=embed)
+
     # ── Event listeners ────────────────────────────────────────────────────────
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):

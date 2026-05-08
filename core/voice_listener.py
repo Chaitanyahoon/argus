@@ -312,17 +312,40 @@ class VoiceListener:
 
         self._audio_source = PCMAudioSource()
 
-        self._live_session = LiveSession(
-            on_audio=self._on_gemini_audio,
-            on_turn_complete=self._on_turn_complete,
-            on_tool_call=self._on_tool_call,
-            on_interrupted=self._on_interrupted,
-            on_transcript=self._on_transcript,
-        )
+        from .argus_systems import get_wellness_prompt
+        from .live_session import SYSTEM_PROMPT
+        
+        # Determine the user who triggered the session (fuzzy matching or first member)
+        # Note: In a real scenario, we might want to know WHO we are talking to.
+        # For now, let's keep it simple and check if the bot author has mood data.
+        user_who_joined = voice_client.user.id # This is the bot. 
+        # We need the user who called !listen. That would be in the context if we passed it.
+        # However, VoiceManager doesn't have the caller ID easily. 
+        # We'll try to find the first non-bot member in the VC.
+        members = [m for m in voice_client.channel.members if not m.bot]
+        caller = members[0] if members else None
+        
+        extra_instr = ""
+        if caller and hasattr(self.bot, "wellness_manager"):
+            stats = self.bot.wellness_manager.get_mood_stats(caller.id)
+            extra_instr = get_wellness_prompt(stats)
+            
+        full_prompt = SYSTEM_PROMPT
+        if extra_instr:
+            full_prompt += "\n\n## Mood Context:\n" + extra_instr
 
         try:
-            logger.info("Connecting to Gemini Live API...")
-            await self._live_session.connect()
+            # Instantiate LiveSession here
+            self._live_session = LiveSession(
+                on_audio=self._on_gemini_audio,
+                on_turn_complete=self._on_turn_complete,
+                on_tool_call=self._on_tool_call,
+                on_interrupted=self._on_interrupted,
+                on_transcript=self._on_transcript,
+            )
+            
+            logger.info("Connecting to Gemini Live API with mood-aware prompt...")
+            await self._live_session.connect(system_prompt=full_prompt)
             logger.info("Connected to Gemini Live API.")
         except Exception as e:
             logger.error("Failed to connect to Gemini Live API: %s", e)
@@ -357,6 +380,15 @@ class VoiceListener:
         if not vc or not vc.is_connected() or not self._live_session or not self._event_loop:
             return
 
+        # Ensure the voice client has listen method (must be VoiceRecvClient)
+        if not hasattr(vc, 'listen'):
+            logger.error(
+                "Voice client does not support listening (not a VoiceRecvClient). "
+                "Type: %s. Please reconnect with >>join.", 
+                type(vc)
+            )
+            return
+
         # Stop any existing listener before starting a fresh one
         if hasattr(vc, "is_listening") and vc.is_listening():
             try:
@@ -366,7 +398,10 @@ class VoiceListener:
 
         callback = make_receive_callback(self._live_session, self._event_loop)
         sink = voice_recv.BasicSink(callback)
-        vc.listen(sink, after=self._on_router_stopped)
+        try:
+            vc.listen(sink, after=self._on_router_stopped)
+        except Exception as e:
+            logger.error("Failed to start listening on voice client: %s", e, exc_info=True)
 
     def _get_restart_delay(self) -> float:
         """Exponential backoff: 1s, 2s, 4s, 8s … capped at _RESTART_MAX_DELAY."""
@@ -701,74 +736,16 @@ class VoiceListener:
     # --- Music Tool Implementations ---
 
     async def _exec_play_music(self, query: str) -> str:
-        if not query:
-            return "❌ No song specified. Try: play jazz music, or play artist name."
-        mm = getattr(self.bot, "music_manager", None)
-        if not mm or not self._voice_client:
-            return "❌ Music player not ready. Are we in a voice channel?"
-        
-        try:
-            # Resolve tracks (uses yt-dlp/Spotify scraper)
-            from .music_player import resolve_tracks
-            tracks = await resolve_tracks(query, self.bot.user) 
-            if not tracks:
-                return f"❌ Could not find music for '{query}'. Try another search."
-            
-            player = mm.get_player_for_vc(self._voice_client)
-            if len(tracks) == 1:
-                await player.play(tracks[0])
-                return f"▶️ Now playing: {tracks[0].title}"
-            else:
-                await player.enqueue_many(tracks)
-                return f"✅ Added {len(tracks)} tracks to queue. Use 'skip' to go to the next one."
-        except Exception as e:
-            logger.error("Music player error: %s", e)
-            return f"❌ Music error: {e}"
+        return "❌ Music features are disabled in this deployment to reduce costs."
 
     async def _exec_skip_music(self) -> str:
-        mm = getattr(self.bot, "music_manager", None)
-        if not mm or not self._voice_client:
-            return "❌ Music player not ready."
-        try:
-            player = mm.get_player_for_vc(self._voice_client)
-            await player.skip()
-            next_track = player.queue[0] if player.queue else None
-            if next_track:
-                return f"⏭️ Skipped. Now playing: {next_track.title}"
-            else:
-                return "⏭️ Skipped. Queue is now empty."
-        except Exception as e:
-            return f"❌ Skip failed: {e}"
+        return "❌ Music features are disabled in this deployment to reduce costs."
 
     async def _exec_stop_music(self) -> str:
-        mm = getattr(self.bot, "music_manager", None)
-        if not mm or not self._voice_client:
-            return "❌ Music player not ready."
-        try:
-            player = mm.get_player_for_vc(self._voice_client)
-            await player.stop()
-            return "⏹️ Stopped music. Queue cleared. Say 'play' to start music again."
-        except Exception as e:
-            return f"❌ Stop failed: {e}"
+        return "❌ Music features are disabled in this deployment to reduce costs."
 
     async def _exec_show_queue(self) -> str:
-        mm = getattr(self.bot, "music_manager", None)
-        if not mm or not self._voice_client:
-            return "❌ Music player not ready."
-        try:
-            player = mm.get_player_for_vc(self._voice_client)
-            q = player.queue
-            if not q:
-                return "📭 The queue is empty. Say 'play' to add music."
-            
-            lines = [f"🎵 Queue ({len(q)} tracks):"]
-            for i, t in enumerate(q[:5], 1):
-                lines.append(f"{i}. {t.title}")
-            if len(q) > 5:
-                lines.append(f"... and {len(q)-5} more.")
-            return "\n".join(lines)
-        except Exception as e:
-            return f"❌ Queue error: {e}"
+        return "❌ Music features are disabled in this deployment to reduce costs."
 
     # --- Temp VC Tool Implementations ---
 

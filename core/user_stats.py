@@ -176,24 +176,8 @@ class UserStatsManager:
         )
     
     def add_music_play(self, user_id: int, genre: str = None) -> None:
-        """Track music play."""
-        stats = self.get_user_stats(user_id)
-        if not stats:
-            return
-        
-        stats.music_plays += 1
-        stats.xp += self.XP_PER_SONG
-        if genre:
-            stats.favorite_music_genre = genre
-        stats.last_activity = datetime.utcnow().isoformat()
-        
-        self.db.set_user(
-            user_id,
-            music_plays=stats.music_plays,
-            xp=stats.xp,
-            favorite_music_genre=stats.favorite_music_genre,
-            last_activity=stats.last_activity
-        )
+        """Music tracking disabled in this deployment. Kept as a no-op for compatibility."""
+        logger.debug("add_music_play called but music features are disabled; no-op")
     
     def add_achievement(self, user_id: int, achievement: str) -> bool:
         """Add achievement. Returns True if new."""
@@ -282,7 +266,7 @@ class UserStatsManager:
         
         embed.add_field(
             name="🎵 Music",
-            value=f"**Songs Played:** {stats.music_plays}",
+            value="Music features disabled in this deployment",
             inline=True
         )
         

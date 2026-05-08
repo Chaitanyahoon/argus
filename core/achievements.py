@@ -95,25 +95,7 @@ class AchievementManager:
                 '🔊'
             ),
             
-            # Music achievements
-            'music_lover': Achievement(
-                'Music Lover',
-                'Play 50 songs',
-                AchievementTier.COMMON,
-                '🎵'
-            ),
-            'dj': Achievement(
-                'DJ',
-                'Play 500 songs',
-                AchievementTier.UNCOMMON,
-                '🎶'
-            ),
-            'music_maestro': Achievement(
-                'Music Maestro',
-                'Play 2000 songs',
-                AchievementTier.RARE,
-                '🎼'
-            ),
+            # NOTE: Music playback features have been removed in this deployment.
             
             # Engagement achievements
             'sociable': Achievement(
@@ -181,14 +163,12 @@ class AchievementManager:
             'first_voice': stats.get('voice_time_seconds', 0) > 0,
             'voiceover': stats.get('voice_time_seconds', 0) >= 3600,  # 1 hour
             'voice_master': stats.get('voice_time_seconds', 0) >= 36000,  # 10 hours
-            'music_lover': stats.get('music_plays', 0) >= 50,
-            'dj': stats.get('music_plays', 0) >= 500,
-            'music_maestro': stats.get('music_plays', 0) >= 2000,
+            # Music triggers removed — kept for backward compatibility but disabled
             'sociable': stats.get('commands_used', 0) >= 50,
             'power_user': stats.get('commands_used', 0) >= 500,
             'ultimate_user': stats.get('commands_used', 0) >= 2000,
             'collector': len(stats.get('achievements', [])) >= 10,
-            'completionist': len(stats.get('achievements', [])) >= len(self.achievements) - 1,  # All except this one
+            'completionist': len(stats.get('achievements', [])) >= len(self.achievements),
         }
         
         if trigger not in conditions:

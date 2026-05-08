@@ -4,25 +4,16 @@ discord-ext-voice-recv>=0.5.2a179
 PyNaCl>=1.5.0
 python-dotenv>=1.0.0
 google-genai>=1.0.0
-yt-dlp>=2024.1.0
-spotifyscraper>=2.1.0
 faster-whisper>=1.1.0
 
 # Audio processing and VAD
 numpy>=1.24.0
-librosa>=0.10.0  # Optional: for advanced audio analysis
 
 # Optional: High-accuracy voice activity detection
 # Uncomment to enable: silero-vad>=5.1.0, torch>=2.0.0
 
-# Dashboard API
-flask>=3.0.0
-flask-cors>=4.0.0
-requests>=2.31.0
-
 # Type checking and code quality
 mypy>=1.10.0
-types-python-dotenv>=1.0.0
 
 # Testing (if not already installed)
 pytest>=7.4.0

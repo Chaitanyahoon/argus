@@ -26,7 +26,6 @@ class VoiceSession:
     started_at: datetime
     last_activity: datetime = field(default_factory=datetime.now)
     is_listening: bool = False  # Is in Gemini Live conversation
-    is_playing_music: bool = False  # Is music currently playing
     inactivity_warnings_sent: int = 0
     
     def get_duration(self) -> timedelta:
@@ -99,8 +98,8 @@ class VoiceSessionTimeoutManager:
                         # Get timeout for this guild
                         timeout = self._get_guild_timeout(guild_id)
                         
-                        # Check for timeout
-                        if session.is_idle(timeout) and not session.is_listening and not session.is_playing_music:
+                        # Check for timeout (music playback removed; only listening state prevents timeout)
+                        if session.is_idle(timeout) and not session.is_listening:
                             logger.warning(
                                 f"Voice session timeout for guild {guild_id} "
                                 f"(idle for {session.get_inactivity_time().total_seconds():.0f}s)"
@@ -195,9 +194,8 @@ class VoiceSessionTimeoutManager:
             self.sessions[guild_id].is_listening = is_listening
     
     def set_playing_music(self, guild_id: int, is_playing: bool) -> None:
-        """Mark session as playing music or not."""
-        if guild_id in self.sessions:
-            self.sessions[guild_id].is_playing_music = is_playing
+        """Music playback tracking removed; kept no-op for compatibility."""
+        return
     
     def _get_guild_timeout(self, guild_id: int) -> int:
         """Get configured timeout for a guild (in seconds)."""
@@ -280,10 +278,10 @@ class VoiceSessionTimeoutManager:
         )
         
         # Status indicators
-        status = "🎵" if session.is_playing_music else ("🗣️" if session.is_listening else "😴")
+        status = ("🗣️" if session.is_listening else "😴")
         embed.add_field(
             name="Mode",
-            value=f"{status} {'Music' if session.is_playing_music else 'Listening' if session.is_listening else 'Idle'}",
+            value=f"{status} {'Listening' if session.is_listening else 'Idle'}",
             inline=True
         )
         

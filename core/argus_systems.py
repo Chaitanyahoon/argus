@@ -54,6 +54,23 @@ def modify_response(content: str, stage: int, mood: str = "NORMAL") -> str:
             
     return content
 
+def get_wellness_prompt(mood_stats: dict | None) -> str:
+    """Get additional AI instructions based on user mood."""
+    if not mood_stats or mood_stats.get("count", 0) == 0:
+        return ""
+    
+    avg = mood_stats.get("avg", 3.0)
+    if avg >= 4.5: # 1=Great, 5=Struggling (wait, I inverted it in cog, 1=Great, 5=Struggling)
+        # 1=Great, 5=Struggling in DB if I follow `actual_score`
+        return "" # Normal
+        
+    if avg >= 4.0: # Struggling
+        return " The user is currently going through a difficult time. Be exceptionally empathetic, gentle, and supportive. Avoid being overly 'robotic' or cold."
+    elif avg >= 3.0: # Okay/Meh
+        return " The user is feeling a bit down or neutral. Be supportive and encouraging."
+        
+    return ""
+
 # --- Database Management ---
 class ArgusDb:
     def __init__(self, data_dir="data"):
@@ -152,6 +169,9 @@ class ArgusManager:
         self.client = None
         if Config and hasattr(Config, "GEMINI_API_KEY"):
             self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
+            
+        # Will be set by TherapyCog, but we can try to fetch it now
+        self.wellness = getattr(bot, "wellness_manager", None)
 
     def get_xp_for_level(self, level: int) -> int:
         """Calculate XP threshold for a given level."""

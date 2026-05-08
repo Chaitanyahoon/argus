@@ -51,19 +51,8 @@ class PermissionsCog(commands.Cog, name="Permissions"):
             except KeyError:
                 await ctx.send(embed=E.error("Invalid Level", f"Choose from: {_LEVELS}", ctx))
 
-        elif action == "setmusic":
-            if not args:
-                await ctx.send(embed=E.error("Missing Level", f"Usage: `!perms setmusic <LEVEL>`\nLevels: {_LEVELS}", ctx))
-                return
-            try:
-                level = PermissionLevel[args.upper()]
-                pm.set_command_level(ctx.guild.id, "music", level)
-                await ctx.send(embed=E.success("🔐 Music Permissions Updated", f"Music commands now require **{level.name}**.", ctx))
-            except KeyError:
-                await ctx.send(embed=E.error("Invalid Level", f"Choose from: {_LEVELS}", ctx))
-
         else:
-            await ctx.send(embed=E.error("Unknown Action", "Valid actions: `show`, `setvoice`, `setmusic`.", ctx))
+            await ctx.send(embed=E.error("Unknown Action", "Valid actions: `show`, `setvoice`.", ctx))
 
     @commands.command(name="setroleperm", help="Set permission level for a role.")
     @commands.has_permissions(administrator=True)

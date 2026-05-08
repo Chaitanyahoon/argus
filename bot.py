@@ -1,8 +1,11 @@
 """
-Voice-Controlled Discord Moderation Bot (AI-Powered)
+🌿 Planthesia Bot - Server Helper
+
+Your friendly Discord companion for server management, support tickets, member onboarding,
+and helpful information. Supports voice conversations via Gemini 2.5 Flash Live API.
 
 Main entry point — handles bot setup, text commands, and event lifecycle.
-Uses discord.py + discord-ext-voice-recv for voice (DAVE + receive) and
+Uses discord.py + discord-ext-voice-recv for voice reception and
 Gemini 2.5 Flash Live API for real-time bidirectional voice conversation.
 """
 
@@ -10,6 +13,7 @@ import asyncio
 import builtins
 import logging
 import os
+import sys
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -24,11 +28,8 @@ from logger import setup_logging, get_logger
 from core.voice_listener import VoiceManager
 from core.temp_voice import TempVoiceManager
 from core.temp_voice_ui import TempVoiceView
-from core.music_player import MusicManager, resolve_tracks, Track
+# music manager removed for cost-saving deployment (music features pruned)
 from core.argus_systems import ArgusManager, modify_response
-from core.user_stats import UserStatsManager
-from core.leaderboard import LeaderboardManager
-from core.achievements import AchievementManager
 from core.voice_reconnection import VoiceReconnectionManager
 from core.permissions import PermissionManager, PermissionLevel, require_permission
 from core.voice_session_timeout import VoiceSessionTimeoutManager
@@ -139,8 +140,7 @@ class ArgusBot(commands.Bot):
         logger.info("Loading Cogs...")
         if os.path.exists("./cogs"):
             for filename in os.listdir("./cogs"):
-                if filename.endswith(".py"):
-                    # Use string replacement for type checkers
+                if filename.endswith(".py") and filename != "__init__.py":
                     cog_name = str(filename).replace(".py", "")
                     try:
                         await self.load_extension(f"cogs.{cog_name}")
@@ -151,29 +151,27 @@ class ArgusBot(commands.Bot):
 bot = ArgusBot(
     command_prefix=get_prefix,
     intents=intents,
-    description="AI-powered voice-controlled Discord moderation bot",
+    description="🌿 Planthesia Bot - Your friendly server helper. Tickets, info, voice AI, and more!",
     help_command=None,
 )
 
 # Global managers (assigned to bot object in on_ready)
 voice_manager: VoiceManager | None = None
 temp_voice_manager: TempVoiceManager | None = None
-music_manager: MusicManager | None = None
 argus_manager: ArgusManager | None = None
-user_stats_manager: UserStatsManager | None = None
-leaderboard_manager: LeaderboardManager | None = None
-achievement_manager: AchievementManager | None = None
 voice_reconnection_manager: VoiceReconnectionManager | None = None
 permission_manager: PermissionManager | None = None
 voice_session_timeout_manager: VoiceSessionTimeoutManager | None = None
 _background_tasks: list[asyncio.Task] = []  # Track background tasks for cleanup
 
-# Status rotation list
+# Status rotation list - Planthesia Bot helper personality
 _STATUS_ROTATION = [
-    (discord.ActivityType.watching, "the evolution..."),
-    (discord.ActivityType.listening, "voice commands"),
-    (discord.ActivityType.playing, "Gemini 2.5 Flash"),
     (discord.ActivityType.watching, "your server"),
+    (discord.ActivityType.listening, "support requests"),
+    (discord.ActivityType.playing, "helpful bot 🌿"),
+    (discord.ActivityType.watching, "members join"),
+    (discord.ActivityType.listening, "voice conversations"),
+    (discord.ActivityType.playing, "ticket system"),
 ]
 _STATUS_INDEX = 0
 
@@ -196,7 +194,7 @@ async def _update_bot_status() -> None:
 
 @bot.event
 async def on_ready():
-    global voice_manager, temp_voice_manager, music_manager, argus_manager, user_stats_manager, leaderboard_manager, achievement_manager, voice_reconnection_manager, permission_manager, voice_session_timeout_manager, _background_tasks
+    global voice_manager, temp_voice_manager, argus_manager, voice_reconnection_manager, permission_manager, voice_session_timeout_manager, _background_tasks
     
     argus_manager = ArgusManager(bot)
     bot.argus_manager = argus_manager
@@ -207,17 +205,6 @@ async def on_ready():
     temp_voice_manager = TempVoiceManager(bot, argus_manager)
     bot.temp_voice_manager = temp_voice_manager
     
-    music_manager = MusicManager()
-    bot.music_manager = music_manager
-    
-    user_stats_manager = UserStatsManager(argus_manager.db)
-    bot.user_stats_manager = user_stats_manager
-    
-    leaderboard_manager = LeaderboardManager(argus_manager.db)
-    bot.leaderboard_manager = leaderboard_manager
-    
-    achievement_manager = AchievementManager(argus_manager.db)
-    bot.achievement_manager = achievement_manager
     
     voice_reconnection_manager = VoiceReconnectionManager(bot)
     voice_reconnection_manager.start()
@@ -228,19 +215,34 @@ async def on_ready():
     
     voice_session_timeout_manager = VoiceSessionTimeoutManager(bot)
     voice_session_timeout_manager.start()
-    bot.voice_session_timeout_manager = voice_session_timeout_manager
+    logger.info("PYTHON: %s", sys.executable)
+    logger.info("PATH: %s", sys.path)
+    import websockets
+    logger.info("WEBSOCKETS: %s", websockets.__file__)
+    import google.genai
+    logger.info("GOOGLE-GENAI: %s", google.genai.__file__)
     
     try:
+        # Global sync (takes up to 1 hour to propagate)
         synced = await bot.tree.sync()
-        logger.info("  Synced %d slash command(s)", len(synced))
+        logger.info("  Synced %d slash command(s) globally", len(synced))
+        # Also sync per-guild for instant availability
+        for guild in bot.guilds:
+            try:
+                bot.tree.copy_global_to(guild=guild)
+                guild_synced = await bot.tree.sync(guild=guild)
+                logger.info("  Guild sync: %d commands → %s", len(guild_synced), guild.name)
+            except Exception as ge:
+                logger.warning("  Guild sync failed for %s: %s", guild.name, ge)
     except Exception as e:
         logger.error("  Failed to sync slash commands: %s", e)
 
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    logger.info("  👁️ Argus is online: %s (ID: %s)", bot.user.name, bot.user.id)
+    logger.info("  🌿 Planthesia Bot is online: %s (ID: %s)", bot.user.name, bot.user.id)
     logger.info("  📡 Connected to %d guild(s)", len(bot.guilds))
-    logger.info("  🧠 AI: Gemini 2.5 Flash (Live Audio Mode)")
-    logger.info(f"  ✅ Ready! Use {Config.COMMAND_PREFIX}join to connect, then {Config.COMMAND_PREFIX}listen to start.")
+    logger.info("  🎯 Features: Tickets, Info, Voice AI, Welcome System")
+    logger.info(f"  ✅ Ready to help! Use {Config.COMMAND_PREFIX}help for commands.")
+    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
     # Start status rotation
     status_task = bot.loop.create_task(_update_bot_status())
@@ -282,7 +284,26 @@ async def on_ready():
         logger.warning("Failed to register health checks: %s", e)
 
 
-# Note: Events like on_voice_state_update, on_message, etc. are now handled 
+@bot.event
+async def on_message(message: discord.Message):
+    """Handle message events: pings and command processing."""
+    if message.author.bot:
+        return
+        
+    # Debug log to see if we are receiving ANYTHING
+    logger.info(f"📩 [{message.guild.name if message.guild else 'DM'}] {message.author}: {message.content}")
+
+    # Respond to pings
+    if bot.user.mentioned_in(message) and not message.mention_everyone:
+        # Check if it's a direct mention at the start
+        if message.content.startswith(f'<@{bot.user.id}>') or message.content.startswith(f'<@!{bot.user.id}>'):
+            await message.channel.send(f"👁️ **Argus Evolutionary Systems: ONLINE**\nPrefix: `{Config.COMMAND_PREFIX}`\nType `{Config.COMMAND_PREFIX}help` for a list of available subroutines.")
+            
+    # Process commands
+    await bot.process_commands(message)
+
+
+# Note: Events like on_voice_state_update, etc. are now handled 
 # by their respective Cog listeners (ArgusCog, TempVoiceCog).
 
 

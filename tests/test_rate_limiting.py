@@ -34,7 +34,10 @@ class RateLimiter:
         self.attempts[key] = [t for t in self.attempts[key] if now - t < self.time_window]
         
         if len(self.attempts[key]) >= self.max_attempts:
-            retry_after = int(self.time_window - (now - self.attempts[key][0])) + 1
+            if self.attempts[key]:  # Only calculate retry if there are previous attempts
+                retry_after = int(self.time_window - (now - self.attempts[key][0])) + 1
+            else:
+                retry_after = int(self.time_window)
             return False, f"Rate limited. Retry after {retry_after}s"
         
         self.attempts[key].append(now)

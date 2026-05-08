@@ -10,6 +10,7 @@ Handles:
 """
 
 import asyncio
+import websockets
 import logging
 from typing import Callable, Awaitable, Optional, cast
 
@@ -20,6 +21,7 @@ from config import Config
 from .audio_utils import gemini_to_discord, PCMAudioSource
 
 logger = logging.getLogger(__name__)
+logger.info("DEBUG: live_session module loaded. websockets file: %s", websockets.__file__)
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,9 +54,8 @@ You are an observer, a guide, and a keeper of the digital realm.
 You can shape your environment and help your community:
 1. **Community Care**: kick_user, ban_user, mute_user, unmute_user (use with discernment).
 2. **Space Creation**: create_channel, delete_channel.
-3. **Music & Atmosphere**: play_music, skip_music, stop_music, show_queue.
-4. **Personal Spaces**: lock_vc, unlock_vc, rename_vc, limit_vc, kick_from_vc.
-5. **Community Insights**: get_user_level, get_awakening_status, set_mood.
+3. **Personal Spaces**: lock_vc, unlock_vc, rename_vc, limit_vc, kick_from_vc.
+4. **Community Insights**: get_user_level, get_awakening_status, set_mood.
 """
 
 # Tool definitions for all voice-controlled functions
@@ -122,28 +123,7 @@ VOICE_TOOLS = [
                     required=["channel_name"],
                 ),
             ),
-            # --- Music ---
-            types.FunctionDeclaration(
-                name="play_music",
-                description="Search and play music from YouTube/Spotify",
-                parameters=types.Schema(
-                    type="OBJECT",
-                    properties={"query": types.Schema(type="STRING", description="Song name, artist, or URL")},
-                    required=["query"],
-                ),
-            ),
-            types.FunctionDeclaration(
-                name="skip_music",
-                description="Skip the current music track",
-            ),
-            types.FunctionDeclaration(
-                name="stop_music",
-                description="Stop music playback and clear the queue",
-            ),
-            types.FunctionDeclaration(
-                name="show_queue",
-                description="Show the current music queue",
-            ),
+            # Music tools removed in this deployment (disabled)
             # --- Temp VC ---
             types.FunctionDeclaration(
                 name="lock_vc",
@@ -247,10 +227,20 @@ class LiveSession:
             on_interrupted: Called when the model's response is interrupted by user speech.
             on_transcript: Called with (direction, text) for input/output transcriptions.
         """
+        # Initialize client with unified types wrapper if needed
         self._client = genai.Client(
             api_key=Config.GEMINI_API_KEY,
             http_options=types.HttpOptions(api_version="v1alpha"),
         )
+        # Check if live is present on the aio client
+        has_aio = hasattr(self._client, 'aio')
+        has_live = has_aio and hasattr(self._client.aio, 'live') and self._client.aio.live is not None
+        
+        logger.info("Gemini LiveSession Client Created. has_aio=%s, has_live=%s", has_aio, has_live)
+        if not has_live:
+             # This is a critical error for LiveSession
+             logger.error("DANGER: Gemini Live API (aio.live) is NOT available in this environment.")
+             # We will attempt to connect anyway and let the connect() method's defensive checks catch it with full context.
         self._session = None
         self._receive_task: Optional[asyncio.Task] = None
         self._connected = False
@@ -268,13 +258,14 @@ class LiveSession:
         # Context manager for the session
         self._session_ctx = None
 
-    async def connect(self) -> None:
+    async def connect(self, system_prompt: Optional[str] = None) -> None:
         """Establish the Live API WebSocket connection."""
         if self._connected:
             logger.warning("Already connected to Live API.")
             return
 
         voice_name = getattr(Config, "GEMINI_VOICE", "Kore")
+        prompt = system_prompt or SYSTEM_PROMPT
 
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
@@ -286,12 +277,21 @@ class LiveSession:
                 )
             ),
             system_instruction=types.Content(
-                parts=[types.Part(text=SYSTEM_PROMPT)]
+                parts=[types.Part(text=prompt)]
             ),
             tools=VOICE_TOOLS,
         )
 
         logger.info("Connecting to Gemini Live API (%s, voice=%s)...", MODEL, voice_name)
+
+        if self._client is None:
+            raise RuntimeError("Gemini Client is None!")
+        if self._client.aio is None:
+            raise RuntimeError("Gemini Client.aio is None!")
+        if self._client.aio.live is None:
+            # Try to force re-init or check websockets
+            logger.error("Gemini Client.aio.live is None! Check if 'websockets' is installed and accessible.")
+            raise RuntimeError("Gemini Client.aio.live is None (Realtime API unavailable)")
 
         self._session_ctx = self._client.aio.live.connect(
             model=MODEL,

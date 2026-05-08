@@ -32,6 +32,10 @@ class LeaderboardManager:
         """
         # Get top users from SQLite
         # If db has get_top_users, use it. Otherwise fallback to read() shim.
+        # Music leaderboard removed — return empty if requested
+        if metric == 'music_plays':
+            return []
+
         if hasattr(self.db, 'get_top_users'):
             sorted_users = self.db.get_top_users(metric, limit)
         else:
@@ -90,7 +94,7 @@ class LeaderboardManager:
             'level': 'Level',
             'messages': 'Messages Sent',
             'voice_time': 'Voice Time (seconds)',
-            'music_plays': 'Songs Played',
+            # 'music_plays' metric removed in this deployment
             'commands': 'Commands Used',
         }
         
@@ -133,7 +137,6 @@ class LeaderboardManager:
                     SUM(xp), 
                     SUM(total_messages), 
                     SUM(voice_time_seconds), 
-                    SUM(music_plays),
                     AVG(level)
                 FROM users
             """)
@@ -143,8 +146,8 @@ class LeaderboardManager:
                 'total_xp': int(counts[1] or 0),
                 'total_messages': int(counts[2] or 0),
                 'total_voice_time': int(counts[3] or 0),
-                'total_songs': int(counts[4] or 0),
-                'avg_level': float(f"{float(counts[5] or 0):.1f}"),
+                'total_songs': 0,
+                'avg_level': float(f"{float(counts[4] or 0):.1f}"),
             }
         
         # Fallback for JSON
@@ -155,7 +158,7 @@ class LeaderboardManager:
         total_xp = sum(u.get('xp', 0) for u in all_users)
         total_messages = sum(u.get('total_messages', 0) for u in all_users)
         total_voice_seconds = sum(u.get('voice_time_seconds', 0) for u in all_users)
-        total_songs = sum(u.get('music_plays', 0) for u in all_users)
+        total_songs = 0
         
         return {
             'total_users': int(len(all_users)),
