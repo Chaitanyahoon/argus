@@ -1,8 +1,8 @@
 """
 🌿 Planthesia Bot - Server Helper
 
-Your friendly Discord companion for server management, support tickets, member onboarding,
-and helpful information. Supports voice conversations via Gemini 2.5 Flash Live API.
+Your friendly Discord companion for server management and helpful information. 
+Supports voice conversations via Gemini 2.5 Flash Live API.
 
 Main entry point — handles bot setup, text commands, and event lifecycle.
 Uses discord.py + discord-ext-voice-recv for voice reception and
@@ -26,8 +26,6 @@ from discord import utils
 from config import Config
 from logger import setup_logging, get_logger
 from core.voice_listener import VoiceManager
-from core.temp_voice import TempVoiceManager
-from core.temp_voice_ui import TempVoiceView
 # music manager removed for cost-saving deployment (music features pruned)
 from core.argus_systems import ArgusManager, modify_response
 from core.voice_reconnection import VoiceReconnectionManager
@@ -151,13 +149,12 @@ class ArgusBot(commands.Bot):
 bot = ArgusBot(
     command_prefix=get_prefix,
     intents=intents,
-    description="🌿 Planthesia Bot - Your friendly server helper. Tickets, info, voice AI, and more!",
+    description="🌿 Planthesia Bot - Your friendly server helper. Info, voice AI, and more!",
     help_command=None,
 )
 
 # Global managers (assigned to bot object in on_ready)
 voice_manager: VoiceManager | None = None
-temp_voice_manager: TempVoiceManager | None = None
 argus_manager: ArgusManager | None = None
 voice_reconnection_manager: VoiceReconnectionManager | None = None
 permission_manager: PermissionManager | None = None
@@ -171,7 +168,6 @@ _STATUS_ROTATION = [
     (discord.ActivityType.playing, "helpful bot 🌿"),
     (discord.ActivityType.watching, "members join"),
     (discord.ActivityType.listening, "voice conversations"),
-    (discord.ActivityType.playing, "ticket system"),
 ]
 _STATUS_INDEX = 0
 
@@ -194,16 +190,13 @@ async def _update_bot_status() -> None:
 
 @bot.event
 async def on_ready():
-    global voice_manager, temp_voice_manager, argus_manager, voice_reconnection_manager, permission_manager, voice_session_timeout_manager, _background_tasks
+    global voice_manager, argus_manager, voice_reconnection_manager, permission_manager, voice_session_timeout_manager, _background_tasks
     
     argus_manager = ArgusManager(bot)
     bot.argus_manager = argus_manager
     
     voice_manager = VoiceManager(bot, argus_manager)
     bot.voice_manager = voice_manager
-    
-    temp_voice_manager = TempVoiceManager(bot, argus_manager)
-    bot.temp_voice_manager = temp_voice_manager
     
     
     voice_reconnection_manager = VoiceReconnectionManager(bot)
@@ -240,7 +233,7 @@ async def on_ready():
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     logger.info("  🌿 Planthesia Bot is online: %s (ID: %s)", bot.user.name, bot.user.id)
     logger.info("  📡 Connected to %d guild(s)", len(bot.guilds))
-    logger.info("  🎯 Features: Tickets, Info, Voice AI, Welcome System")
+    logger.info("  🎯 Features: Info, Voice AI")
     logger.info(f"  ✅ Ready to help! Use {Config.COMMAND_PREFIX}help for commands.")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     

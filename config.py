@@ -51,41 +51,6 @@ class Config:
         logger.warning("Invalid LOG_LEVEL '%s'; using INFO instead.", LOG_LEVEL)
         LOG_LEVEL = "INFO"
 
-    # Temporary voice channel configuration
-    TEMP_VOICE_TRIGGER_CHANNEL_ID: Optional[int] = None
-    _tv_trigger: str = os.getenv("TEMP_VOICE_TRIGGER_CHANNEL_ID", "")
-    if _tv_trigger.strip():
-        try:
-            TEMP_VOICE_TRIGGER_CHANNEL_ID = int(_tv_trigger.strip())
-        except ValueError:
-            logger.warning("TEMP_VOICE_TRIGGER_CHANNEL_ID must be an integer; ignoring.")
-
-    TEMP_VOICE_CATEGORY_ID: Optional[int] = None
-    _tv_cat: str = os.getenv("TEMP_VOICE_CATEGORY_ID", "")
-    if _tv_cat.strip():
-        try:
-            TEMP_VOICE_CATEGORY_ID = int(_tv_cat.strip())
-        except ValueError:
-            logger.warning("TEMP_VOICE_CATEGORY_ID must be an integer; ignoring.")
-
-    # TempVoice: customizable welcome message shown when user gets their temp VC
-    TEMP_VOICE_WELCOME_MESSAGE: str = os.getenv(
-        "TEMP_VOICE_WELCOME_MESSAGE",
-        "Welcome To Your Pvt Space, If anyone force enters vc report the, to management!",
-    )
-
-    # TempVoice: optional path to instruction image (replaces text legend in interface embed)
-    TEMP_VOICE_INSTRUCTION_IMAGE_PATH: str = os.getenv("TEMP_VOICE_INSTRUCTION_IMAGE_PATH", "").strip()
-
-    # TempVoice: optional text channel where the VC management interface is sent
-    TEMP_VOICE_INTERFACE_CHANNEL_ID: Optional[int] = None
-    _tv_interface: str = os.getenv("TEMP_VOICE_INTERFACE_CHANNEL_ID", "")
-    if _tv_interface.strip():
-        try:
-            TEMP_VOICE_INTERFACE_CHANNEL_ID = int(_tv_interface.strip())
-        except ValueError:
-            logger.warning("TEMP_VOICE_INTERFACE_CHANNEL_ID must be an integer; ignoring.")
-
     @classmethod
     def validate(cls) -> None:
         """

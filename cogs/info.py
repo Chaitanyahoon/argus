@@ -327,7 +327,7 @@ class InfoCog(commands.Cog, name="Info"):
             
             embed.add_field(
                 name="✨ Features",
-                value="🎫 Ticket System\n🎤 Voice AI\n📋 Info Commands",
+                value=" Voice AI\n📋 Info Commands",
                 inline=False
             )
             
@@ -347,12 +347,6 @@ class InfoCog(commands.Cog, name="Info"):
             title="🌿 Planthesia Bot Help",
             description="Your friendly server helper",
             color=discord.Color.green()
-        )
-        
-        embed.add_field(
-            name="🎫 Tickets",
-            value="/ticket — Create a support ticket\n/tickets — View all tickets (staff)",
-            inline=False
         )
         
         embed.add_field(
@@ -385,12 +379,6 @@ class InfoCog(commands.Cog, name="Info"):
             title="🌿 Planthesia Bot Help",
             description="Your friendly server helper",
             color=discord.Color.green()
-        )
-        
-        embed.add_field(
-            name="🎫 Tickets",
-            value=">>ticket — Create a support ticket\n>>tickets — View all tickets (staff)\n>>setup-tickets — Setup ticket system",
-            inline=False
         )
         
         embed.add_field(

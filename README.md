@@ -12,7 +12,7 @@
 <br/>
 
 > **Planthesia** is a friendly, helpful Discord bot designed to grow your community.  
-> Handle support tickets, welcome members, share server info, and enjoy voice conversations.
+> Share server info and enjoy voice conversations.
 
 <br/>
 
@@ -30,12 +30,6 @@
 <tr>
 <td width="50%">
 
-### 🎫 Ticket System
-Complete support ticket management. Users create tickets for help, bugs, or suggestions. Staff can view, manage, and resolve all tickets with ease.
-
-### 👋 Welcome & Onboarding
-Automatic welcome messages for new members. Self-assignable roles with buttons. Customizable auto-role assignment on join.
-
 ### 📋 Server Information
 Easy access to server statistics, member info, and role details. Help users learn about your community at a glance.
 
@@ -44,9 +38,6 @@ Easy access to server statistics, member info, and role details. Help users lear
 
 ### 🎤 Voice AI Conversations
 Real-time voice chat powered by Gemini 2.5 Flash. Talk naturally in voice channels — the bot listens and responds naturally.
-
-### 🎙️ Temporary Voice Channels
-Auto-create personal voice channels on join. Auto-cleanup when empty. Full management interface for voice control.
 
 > Note: Music playback features have been disabled in this trimmed deployment to reduce hosting costs.
 
@@ -98,20 +89,6 @@ python bot.py
 ---
 
 ## 🎮 Command Reference
-
-### � Tickets
-| Command | Description |
-|---------|-------------|
-| `/ticket` | Create a support ticket |
-| `/tickets` | View all tickets (staff) |
-| `>>setup-tickets` | Setup ticket system |
-
-### 👋 Welcome & Onboarding
-| Command | Description |
-|---------|-------------|
-| `>>setup-welcome [channel]` | Setup welcome system |
-| `>>setup-roles [channel]` | Setup role assignment buttons |
-| `>>set-auto-role <role>` | Auto-assign role to new members |
 
 ### 📋 Information & Help
 | Command | Description |
@@ -178,7 +155,6 @@ argus/
 │   ├── automod.py            ← AI moderation controls
 │   ├── stats.py              ← XP, profiles, leaderboard
 │   ├── voice.py              ← AI voice interaction
-│   ├── temp_voice.py         ← Temporary voice channels
 │   ├── permissions.py        ← Role-based access control
 │   └── admin.py              ← Bot administration
 │

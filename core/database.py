@@ -47,9 +47,6 @@ class SQLiteArgusDb:
                 logging_channel_id INTEGER,
                 bot_logs_channel_id INTEGER,
                 prefix TEXT DEFAULT '!',
-                temp_voice_trigger_id INTEGER,
-                temp_voice_category_id INTEGER,
-                temp_voice_interface_id INTEGER,
                 automod_toxicity_enabled INTEGER DEFAULT 0,
                 automod_spam_enabled INTEGER DEFAULT 0,
                 automod_threshold REAL DEFAULT 0.7

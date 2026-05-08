@@ -81,9 +81,6 @@ class ArgusCog(commands.Cog, name="Argus"):
         embed.add_field(name="Awakening Stage", value=f"📡 Stage {data.get('awakening_stage', 1)}", inline=True)
         embed.add_field(name="Mood Mode",       value=f"🎭 {data.get('mood_mode', 'NORMAL')}",      inline=True)
         embed.add_field(name="Nexus Logs",      value=_fmt(data.get("logging_channel_id")),          inline=False)
-        embed.add_field(name="TempVoice Trigger",  value=_fmt(data.get("temp_voice_trigger_id")),  inline=True)
-        embed.add_field(name="TempVoice Category", value=_fmt(data.get("temp_voice_category_id")), inline=True)
-        embed.add_field(name="Interface Channel",  value=_fmt(data.get("temp_voice_interface_id")), inline=False)
         embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else discord.utils.MISSING)
         await ctx.send(embed=embed)
 
@@ -91,7 +88,6 @@ class ArgusCog(commands.Cog, name="Argus"):
     async def status_cmd(self, ctx: commands.Context):
         am = self.get_argus_manager()
         vm = getattr(self.bot, "voice_manager", None)
-        tm = getattr(self.bot, "temp_voice_manager", None)
 
         vc_status  = "🟢 Connected"    if ctx.voice_client else "⚫ Not Connected"
         listen_s   = "⚫ Inactive"
@@ -117,8 +113,6 @@ class ArgusCog(commands.Cog, name="Argus"):
                 inline=False,
             )
 
-        tv = "✅ Enabled" if (tm and tm.trigger_channel_id) else "❌ Disabled"
-        embed.add_field(name="🎙️ TempVoice", value=tv, inline=True)
         embed.add_field(name="🤖 Voice Model", value=f"`{Config.GEMINI_VOICE}`", inline=True)
         await ctx.send(embed=embed)
 

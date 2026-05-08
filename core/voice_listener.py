@@ -556,18 +556,6 @@ class VoiceListener:
             elif fn_name == "show_queue":
                 return await self._exec_show_queue()
             
-            # --- Temp VC ---
-            elif fn_name == "lock_vc":
-                return await self._exec_lock_vc()
-            elif fn_name == "unlock_vc":
-                return await self._exec_unlock_vc()
-            elif fn_name == "rename_vc":
-                return await self._exec_rename_vc(args.get("new_name", ""))
-            elif fn_name == "limit_vc":
-                return await self._exec_limit_vc(args.get("limit", 0))
-            elif fn_name == "kick_from_vc":
-                return await self._exec_kick_from_vc(args.get("username", ""))
-            
             # --- Argus Evolutionary Systems ---
             elif fn_name == "get_user_level":
                 return await self._exec_get_user_level(guild, args.get("username", ""))
@@ -746,107 +734,6 @@ class VoiceListener:
 
     async def _exec_show_queue(self) -> str:
         return "❌ Music features are disabled in this deployment to reduce costs."
-
-    # --- Temp VC Tool Implementations ---
-
-    async def _exec_lock_vc(self) -> str:
-        manager = getattr(self.bot, "temp_voice_manager", None)
-        if not manager or not self._voice_client:
-            return "❌ Temp VC manager not ready."
-        
-        ch = self._voice_client.channel
-        data = manager.get_data(ch.id)
-        if not data:
-            return "❌ This is not a temporary voice channel."
-        
-        if data.locked:
-            return f"❌ Channel '{ch.name}' is already locked."
-        
-        try:
-            data.locked = True
-            await ch.set_permissions(ch.guild.default_role, connect=False, view_channel=True)
-            return f"🔒 Your channel '{ch.name}' is now locked. Only invited members can join."
-        except Exception as e:
-            return f"❌ Failed to lock channel: {e}"
-
-    async def _exec_unlock_vc(self) -> str:
-        manager = getattr(self.bot, "temp_voice_manager", None)
-        if not manager or not self._voice_client:
-            return "❌ Temp VC manager not ready."
-        ch = self._voice_client.channel
-        data = manager.get_data(ch.id)
-        if not data:
-            return "❌ This is not a temporary voice channel."
-        
-        if not data.locked:
-            return f"❌ Channel '{ch.name}' is already unlocked."
-        
-        try:
-            data.locked = False
-            await ch.set_permissions(ch.guild.default_role, connect=True, view_channel=True)
-            return f"🔓 Your channel '{ch.name}' is now unlocked. Anyone can join."
-        except Exception as e:
-            return f"❌ Failed to unlock channel: {e}"
-
-    async def _exec_rename_vc(self, new_name: str) -> str:
-        if not new_name:
-            return "❌ No name provided."
-        manager = getattr(self.bot, "temp_voice_manager", None)
-        if not manager or not self._voice_client:
-            return "❌ Temp VC manager not ready."
-        ch = self._voice_client.channel
-        if ch.id not in manager.temp_channels:
-            return "❌ This is not a temporary voice channel."
-        
-        if len(new_name) > 100:
-            return "❌ Channel name too long (max 100 characters)."
-        
-        try:
-            old_name = ch.name
-            await ch.edit(name=new_name)
-            return f"📝 Renamed channel from '{old_name}' to '{new_name}'."
-        except Exception as e:
-            return f"❌ Failed to rename channel: {e}"
-
-    async def _exec_limit_vc(self, limit: int) -> str:
-        manager = getattr(self.bot, "temp_voice_manager", None)
-        if not manager or not self._voice_client:
-            return "❌ Temp VC manager not ready."
-        ch = self._voice_client.channel
-        if ch.id not in manager.temp_channels:
-            return "❌ This is not a temporary voice channel."
-        
-        limit = max(0, min(99, limit))
-        try:
-            await ch.edit(user_limit=limit)
-            if limit == 0:
-                return f"👥 User limit removed from '{ch.name}' (unlimited)."
-            else:
-                return f"👥 User limit for '{ch.name}' set to {limit} members."
-        except Exception as e:
-            return f"❌ Failed to set user limit: {e}"
-
-    async def _exec_kick_from_vc(self, username: str) -> str:
-        if not username:
-            return "❌ No user specified."
-        manager = getattr(self.bot, "temp_voice_manager", None)
-        if not manager or not self._voice_client:
-            return "❌ Temp VC manager not ready."
-        ch = self._voice_client.channel
-        if ch.id not in manager.temp_channels:
-            return "❌ This is not a temporary voice channel."
-        
-        member = fuzzy_find_member(ch.guild, username)
-        if not member:
-            return f"❌ Could not find user '{username}'."
-        if member not in ch.members:
-            return f"❌ {member.display_name} is not in your channel."
-        
-        try:
-            await member.move_to(None, reason="Voice command: kicked from temp VC")
-            return f"👢 Kicked {member.display_name} from '{ch.name}'."
-        except Exception as e:
-            return f"❌ Failed to kick {member.display_name}: {e}"
 
     # --- Argus Systems Tool Implementations ---
 

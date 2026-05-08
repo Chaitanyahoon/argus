@@ -32,25 +32,18 @@ class AdminCog(commands.Cog, name="Admin"):
 
         try:
             category  = await ctx.guild.create_category("➕ Argus Systems")
-            trigger   = await category.create_voice_channel("➕ Create VC")
             logs      = await category.create_text_channel("👁️-nexus-logs")
-            interface = await category.create_text_channel("🎮-vc-management")
             bot_logs  = await category.create_text_channel("🤖-bot-logs")
 
             am.db.set_guild(
                 ctx.guild.id,
-                temp_voice_category_id=category.id,
-                temp_voice_trigger_id=trigger.id,
-                temp_voice_interface_id=interface.id,
                 logging_channel_id=logs.id,
                 bot_logs_channel_id=bot_logs.id,
             )
 
             embed = E.success("✅ Setup Complete!", "All Argus channels have been created.", ctx)
             embed.add_field(name="📁 Category",   value=category.name,      inline=True)
-            embed.add_field(name="🔊 Trigger VC", value=trigger.mention,    inline=True)
             embed.add_field(name="📋 Nexus Logs", value=logs.mention,       inline=True)
-            embed.add_field(name="🎮 Interface",  value=interface.mention,  inline=True)
             embed.add_field(name="🤖 Bot Logs",   value=bot_logs.mention,   inline=True)
             embed.set_footer(text="Run >>botlogs, >>health, or >>errors to monitor bot performance")
             await msg.edit(embed=embed)

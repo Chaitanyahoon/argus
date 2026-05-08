@@ -147,7 +147,6 @@ discordbot/
 │   ├── bot_utils.py       # Shared utilities (fuzzy matching)
 │   ├── live_session.py    # Gemini Live API connection
 │   ├── transcriber.py     # Speech-to-text
-│   ├── temp_voice.py      # Temporary Voice Channels
 │   └── argus_systems.py   # XP/leveling system
 ├── data/                  # User/guild data (JSON)
 ├── tests/                 # Unit tests
