@@ -1,53 +1,102 @@
-- [x] Verify that the copilot-instructions.md file in the .github directory is created.
+# 🌿 Argus Development Guide
 
-- [x] Clarify Project Requirements
-	Project type: Discord bot, Language: Python, Frameworks: discord.py, Gemini AI
+**Project Type:** Discord Bot | **Language:** Python | **Framework:** discord.py + Gemini AI
 
-- [x] Scaffold the Project
-	Project structure created with bot.py, cogs/, core/, config management
+## ✅ Setup Checklist
 
-- [x] Customize the Project
-	Codebase modified to remove unwanted features (admin, moderation, leveling, music, tickets, welcome, temp voice), keeping only voice AI and therapy features
+- [x] Project scaffolded with voice AI and therapy features only
+- [x] Dependencies configured via pip
+- [x] No compilation needed (Python project)
+- [x] Bot launches with `python bot.py`
+- [x] Documentation updated
 
-- [x] Install Required Extensions
-	No extensions needed for this Python Discord bot project
+---
 
-- [x] Compile the Project
-	Python project - no compilation needed, dependencies installed via pip
+## 🚀 Launch Commands
 
-- [x] Create and Run Task
-	No VS Code tasks needed - bot runs with `python bot.py`
+```bash
+# Activate virtual environment
+.venv\Scripts\activate
 
-- [x] Launch the Project
-	Bot can be launched with `python bot.py` after configuring .env file
+# Run the bot
+python bot.py
 
-- [x] Ensure Documentation is Complete
-	README.md and CONTRIBUTING.md updated to reflect current features, copilot-instructions.md cleaned up
+# Bot connects to Discord and Gemini Live API via .env credentials
+```
 
-## Execution Guidelines
-PROGRESS TRACKING:
-- Track progress through the above checklist.
-- Mark steps as completed with [x] and add summaries.
-- Read current todo list status before starting each new step.
+---
 
-COMMUNICATION RULES:
-- Avoid verbose explanations or printing full command outputs.
-- If a step is skipped, state that briefly (e.g. "No extensions needed").
-- Do not explain project structure unless asked.
-- Keep explanations concise and focused.
+## 📦 Core Features
 
-DEVELOPMENT RULES:
-- Use '.' as the working directory unless user specifies otherwise.
-- Avoid adding media or external links unless explicitly requested.
-- Use placeholders only with a note that they should be replaced.
-- Use VS Code API tool only for VS Code extension projects.
-- Once the project is created, it is already opened in Visual Studio Code—do not suggest commands to open this project in Visual Studio again.
-- If the project setup information has additional rules, follow them strictly.
+### 💚 Wellness & Therapy
+- Mood check-ins (`!checkin`)
+- Mood history tracking (`!moodlog`)
+- Journal entries (`!journal`)
+- Crisis detection and support resources
 
-FOLDER CREATION RULES:
-- Always use the current directory as the project root.
-- If you are running any terminal commands, use the '.' argument to ensure that the current working directory is used ALWAYS.
-- Do not create a new folder unless the user explicitly requests it besides a .vscode folder for a tasks.json file.
+### 🎤 Voice AI
+- Real-time voice conversations with Gemini 2.5 Flash
+- Natural bidirectional streaming
+- Voice channel management via AI
+
+---
+
+## 🏗️ Repository Structure
+
+```
+argus/
+├── bot.py                  # Main entry point
+├── config.py               # .env configuration
+├── cogs/
+│   ├── therapy.py          # Wellness features
+│   └── voice.py            # Voice AI interface
+├── core/
+│   ├── voice_listener.py   # Audio pipeline
+│   ├── live_session.py     # Gemini connection
+│   ├── database.py         # SQLite storage
+│   └── audio_utils.py      # Audio processing
+└── requirements.txt
+```
+
+---
+
+## 💡 Development Notes
+
+- **Python Version:** 3.11+
+- **Package Manager:** pip
+- **Database:** SQLite (in data/ folder)
+- **API:** Gemini 2.5 Flash Live with bidirectional voice
+- **No Tests:** Removed testing infrastructure for production focus
+
+---
+
+## 📝 Code Style
+
+- Follow PEP 8
+- Add docstrings to functions
+- Type hints encouraged
+- Max line length: 100 characters
+
+---
+
+## 🔄 Contributing
+
+1. Create feature branch: `git checkout -b feature/name`
+2. Make changes and commit: `git commit -m "feat: description"`
+3. Push and create pull request
+4. See [CONTRIBUTING.md](../CONTRIBUTING.md) for details
+
+---
+
+## 📚 Resources
+
+- [Discord.py Documentation](https://discordpy.readthedocs.io)
+- [Gemini API Guide](https://ai.google.dev)
+- [FFmpeg Setup](https://ffmpeg.org/download.html)
+
+---
+
+Last Updated: 2026-05-08 | Status: Production Ready ✨
 - If any of the scaffolding commands mention that the folder name is not correct, let the user know to create a new folder with the correct name and then reopen it again in vscode.
 
 EXTENSION INSTALLATION RULES:

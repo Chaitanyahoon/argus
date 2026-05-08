@@ -1,7 +1,7 @@
 """
-🌿 Planthesia Bot - Server Helper
+🌿 Argus Bot - Voice AI & Wellness
 
-Your friendly Discord companion for server management and helpful information. 
+Argus is a friendly Discord companion for wellness support and AI voice interaction.
 Supports voice conversations via Gemini 2.5 Flash Live API.
 
 Main entry point — handles bot setup, text commands, and event lifecycle.
@@ -147,7 +147,7 @@ class ArgusBot(commands.Bot):
 bot = ArgusBot(
     command_prefix=get_prefix,
     intents=intents,
-    description="🌿 Planthesia Bot - Your friendly server helper. Info, voice AI, and more!",
+    description="🌿 Argus Bot - Voice AI and wellness support",
     help_command=None,
 )
 
@@ -157,13 +157,13 @@ voice_reconnection_manager: VoiceReconnectionManager | None = None
 voice_session_timeout_manager: VoiceSessionTimeoutManager | None = None
 _background_tasks: list[asyncio.Task] = []  # Track background tasks for cleanup
 
-# Status rotation list - Planthesia Bot helper personality
+# Status rotation list for bot presence
 _STATUS_ROTATION = [
-    (discord.ActivityType.watching, "your server"),
-    (discord.ActivityType.listening, "support requests"),
+    (discord.ActivityType.watching, "voice conversations"),
+    (discord.ActivityType.listening, "wellness support"),
     (discord.ActivityType.playing, "helpful bot 🌿"),
-    (discord.ActivityType.watching, "members join"),
-    (discord.ActivityType.listening, "voice conversations"),
+    (discord.ActivityType.watching, "your server"),
+    (discord.ActivityType.listening, "AI voice chat"),
 ]
 _STATUS_INDEX = 0
 
@@ -222,9 +222,9 @@ async def on_ready():
         logger.error("  Failed to sync slash commands: %s", e)
 
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    logger.info("  🌿 Planthesia Bot is online: %s (ID: %s)", bot.user.name, bot.user.id)
+    logger.info("  🌿 Argus Bot is online: %s (ID: %s)", bot.user.name, bot.user.id)
     logger.info("  📡 Connected to %d guild(s)", len(bot.guilds))
-    logger.info("  🎯 Features: Info, Voice AI")
+    logger.info("  🎯 Features: Voice AI, Wellness")
     logger.info(f"  ✅ Ready to help! Use {Config.COMMAND_PREFIX}help for commands.")
     logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     

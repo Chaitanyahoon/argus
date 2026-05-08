@@ -17,32 +17,33 @@
 
 ### 🎤 Voice AI Conversations
 - Real-time bidirectional voice chat with Gemini 2.5 Flash
-- Natural conversation in multiple languages
-- Voice-controlled server management tools
-- Context-aware responses using your wellness data
+- Natural conversation with AI-powered voice listening
+- Simple join/listen/stop voice controls
+- Intelligent responses that support emotional wellbeing
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - **Python 3.11+**
-- [FFmpeg](https://ffmpeg.org/download.html) on your `PATH`
-- [Discord Bot Token](https://discord.com/developers/applications)
-- [Gemini API Key](https://aistudio.google.com/app/apikey)
+- **FFmpeg** installed and available on your `PATH`
+- **Discord Bot Token**
+- **Gemini API Key**
 
 ### Installation
 
 ```bash
 git clone https://github.com/Chaitanyahoon/argus.git
 cd argus
-python -m venv .venv && .venv\Scripts\activate   # Windows
+python -m venv .venv
+.venv\Scripts\activate    # Windows
 pip install -r requirements.txt
 ```
 
 ### Configuration
 
 ```bash
-cp .env.example .env
-# Edit .env with your tokens
+copy .env.example .env
+# Edit .env with your tokens and keys
 ```
 
 ### Run
@@ -57,16 +58,17 @@ python bot.py
 | Command | Description |
 |---------|-------------|
 | `!checkin` | Guided mood check-in |
-| `!moodlog` | View your mood history |
 | `!journal` | Write a journal entry |
-| `!wellness` | Wellness dashboard |
+| `!breathe` | Guided breathing exercise |
+| `!ground` | 5-4-3-2-1 grounding technique |
+| `!moodstats` | View wellness overview |
 
 ### 🎙️ Voice AI
 | Command | Description |
 |---------|-------------|
-| `!join` | Join your voice channel |
-| `!listen` | Start AI voice session |
-| `!stop` | End voice session |
+| `!join` | Join your current voice channel |
+| `!listen` | Start the AI voice listener |
+| `!stop` | Stop the voice listener |
 | `!leave` | Disconnect from voice |
 
 ## 🗂️ Project Structure

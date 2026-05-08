@@ -1,203 +1,161 @@
-# Contributing to Argus Discord Bot
+# 🌿 Contributing to Argus
 
-Thank you for your interest in contributing! This guide explains how to set up development environment and contribute code.
+Thank you for your interest in contributing! This guide will help you set up the development environment and understand our workflow.
 
-## Development Setup
+## 🚀 Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+- Git
+- Python 3.11+
+- Virtual environment (venv)
+
+### Initial Setup
+
 ```bash
+# Clone repository
 git clone https://github.com/Chaitanyahoon/argus.git
 cd argus
-```
 
-### 2. Create Virtual Environment
-```bash
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
+# Create & activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+# source .venv/bin/activate     # macOS/Linux
 
-# Windows
-python -m venv venv
-venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-```bash
+# Install dependencies
 pip install -r requirements.txt
-pip install pytest pytest-cov  # For testing
 ```
 
-### 4. Setup .env File
+### Configure Environment
+
 ```bash
 cp .env.example .env
-# Edit .env with your Discord token and API keys
+# Edit .env with your Discord Token and Gemini API Key
 ```
 
-### 5. Verify Setup
-```bash
-# Run tests
-python run_tests.py -v
+### Verify Installation
 
-# Try bot
+```bash
 python bot.py
 ```
 
 ---
 
-## Code Style & Guidelines
+## 📝 Code Standards
 
-### Python Style
-- Use PEP 8 conventions
-- Docstrings for all functions/classes
-- Type hints preferred but not required
-- Max line length: 100 characters
+### Python Style Guide
+- Follow **PEP 8** conventions
+- Add docstrings to all functions and classes
+- Type hints encouraged (but not required)
+- Max line length: **100 characters**
+- Use descriptive variable names
 
-### Example Function:
+### Function Example
 ```python
-async def start_voice_session(guild: discord.Guild, channel: discord.VoiceChannel) -> str:
-    """
-    Start a voice AI session in the specified channel.
-    
-    Args:
-        guild: The Discord guild
-        channel: Voice channel to join
-    
-    Returns:
-        Status message (success or error)
-    """
-    if not channel:
-        return "❌ Voice channel not found."
-    
-    # ... rest of implementation
+async def checkin_callback(interaction: discord.Interaction) -> None:
+    """Handle wellness check-in interaction."""
+    await interaction.response.defer()
+    # Implementation...
 ```
 
-### Commit Messages
+### Commit Message Format
 ```
-Format: Type: Brief description
+type: brief description
 
 Types:
-- feat: New feature
-- fix: Bug fix
-- test: Tests
-- docs: Documentation
-- refactor: Code refactoring
-- perf: Performance improvement
+  feat   - New feature
+  fix    - Bug fix
+  docs   - Documentation
+  refactor - Code refactoring
+  style  - Code style (formatting, missing semicolons, etc)
+  perf   - Performance improvement
 
 Example:
-feat: Add rate limiting for voice commands
-fix: Prevent kicking server owner
-docs: Update troubleshooting guide
+feat: Add crisis detection in wellness check-in
+fix: Prevent duplicate voice sessions
+docs: Update voice AI command reference
 ```
 
 ---
 
-## Making Changes
+## 🔄 Workflow
 
-### 1. Create a Feature Branch
+### 1. Create Feature Branch
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-### 2. Make Your Changes
-- Write clean, documented code
-- Add tests for new functionality
-- Follow existing code patterns
+### 2. Make Changes
+- Write clean, well-documented code
+- Follow existing code patterns in the project
+- Test your changes locally
 
-### 3. Run Tests Locally
-```bash
-# Run all tests
-python run_tests.py -v
-
-# Run specific test
-pytest tests/test_bot_utils.py -v
-
-# With coverage
-python run_tests.py --coverage
-```
-
-### 4. Update Documentation
-- Update README.md if user-facing change
-- Update docstrings in code
-- Add to TROUBLESHOOTING.md if adding new features
-
-### 5. Commit & Push
+### 3. Commit Changes
 ```bash
 git add .
-git commit -m "feat: brief description of changes"
+git commit -m "feat: Your feature description"
 git push origin feature/your-feature-name
 ```
 
-### 6. Create Pull Request
+### 4. Create Pull Request
 - Describe what you changed and why
 - Reference any related issues
-- Link to Discord server testing
+- Be ready for feedback and iteration
 
 ---
 
-## Architecture Overview
+## 🏗️ Project Structure
 
 ```
-discordbot/
-├── bot.py                 # Main bot entry point
-├── config.py              # Configuration from .env
+argus/
+├── bot.py                    # Main entry point
+├── config.py                 # Configuration from .env
+├── cogs/
+│   ├── therapy.py            # Wellness features
+│   └── voice.py              # Voice AI commands
 ├── core/
-│   ├── voice_listener.py  # Voice command processing
-│   ├── bot_utils.py       # Shared utilities (fuzzy matching)
-│   ├── live_session.py    # Gemini Live API connection
-│   ├── transcriber.py     # Speech-to-text
-│   └── argus_systems.py   # XP/leveling system
-├── data/                  # User/guild data (JSON)
-├── tests/                 # Unit tests
-└── requirements.txt       # Dependencies
+│   ├── voice_listener.py     # Voice pipeline
+│   ├── live_session.py       # Gemini Live API
+│   ├── database.py           # SQLite database
+│   └── audio_utils.py        # Audio processing
+└── requirements.txt
 ```
+
+### Key Components
+
+**Voice Listener**
+- Receives Discord voice audio
+- Transcribes using faster-whisper
+- Communicates with Gemini Live API
+
+**Live Session**
+- Maintains WebSocket connection to Gemini
+- Handles bidirectional voice streaming
+- Executes function calls for voice commands
+
+**Therapy**
+- Mood tracking and check-ins
+- Journal entries
+- Crisis detection with support resources
 
 ---
 
-## Key Components
+## 📚 Before You Submit
 
-### VoiceListener
-Handles real-time voice processing:
-1. Receives audio from Discord
-2. Transcribes with Whisper
-3. Sends to Gemini Live API
-4. Executes tool calls (moderation, music, etc)
-
-### Safety Checks
-All moderation functions include:
-- Owner protection
-- Role hierarchy checks
-- Bot protection
-- Self-harm prevention
-- Duplicate action prevention
-
-### Rate Limiting
-- Per-guild: 5 voice commands per 30 seconds
-- Per-user: Command-specific cooldowns
-- Prevents spam and API abuse
+- ✅ Code follows PEP 8 standards
+- ✅ Docstrings added to new functions
+- ✅ Your changes don't break existing features
+- ✅ Commit message follows our format
+- ✅ Documentation updated if needed
 
 ---
 
-## Testing
+## ❓ Questions?
 
-### Run All Tests
-```bash
-python run_tests.py -v
-```
+- Open an issue for bugs or feature requests
+- Check existing issues before creating duplicates
+- Be respectful and constructive in discussions
 
-### Test Coverage
-```bash
-python run_tests.py --coverage
-```
-
-### Write New Tests
-
-Example:
-```python
-# tests/test_my_feature.py
-import unittest
-
-class TestMyFeature(unittest.TestCase):
-    def test_something(self):
+Happy contributing! 🎉
         result = my_function()
         self.assertTrue(result)
     
