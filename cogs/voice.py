@@ -25,18 +25,8 @@ class VoiceCog(commands.Cog, name="Voice"):
     def get_voice_manager(self):
         return getattr(self.bot, "voice_manager", None)
 
-    def get_permission_manager(self):
-        return getattr(self.bot, "permission_manager", None)
-
     @commands.command(name="join", help="Join your current voice channel.")
     async def join_command(self, ctx: commands.Context):
-        pm = self.get_permission_manager()
-        if pm:
-            perms = pm._load_permissions(ctx.guild.id)
-            if not pm.can_use_command(ctx.author, perms.voice_command_level):
-                await ctx.send(embed=E.error("Permission Denied", "You don't have permission for voice commands.", ctx))
-                return
-
         if not ctx.author.voice or not ctx.author.voice.channel:
             await ctx.send(embed=E.error("Voice Required", "Join a voice channel first.", ctx))
             return

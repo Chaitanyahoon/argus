@@ -5,12 +5,11 @@
 *.env
 .envrc
 
-# Databases
+# Databases and data
 data/
-*.json
-!requirements.txt
-!package.json
-!composer.json
+logs/
+*.db
+*.log
 
 # Python
 __pycache__/
@@ -43,11 +42,18 @@ ENV/
 env/
 .venv
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+pyrightconfig.json
 
 # Test & Temporary Files
 test_results.txt
